@@ -285,6 +285,8 @@ FFResult Jacquard::ProcessOpenGL( ProcessOpenGLStruct* pGL )
 	lastHeight         = height;
 	if( source != lastPaletteSource || ( resized && ( perturb & weave::kPerturbColdResize ) ) )
 		kmeans.Reset();
+	if( resized && ( perturb & weave::kPerturbColdResize ) )
+		cloth = loom::Cloth();
 	lastPaletteSource = source;
 
 	shuttles.resize( static_cast< size_t >( shuttleCount ) );

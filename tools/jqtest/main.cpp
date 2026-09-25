@@ -726,8 +726,10 @@ void longestFloats( const std::vector< uint8_t >& lift, int E, int P, int& along
 //
 // No GL. The loom weaves small random pictures -- 4 to 13 ends, 8 picks,
 // 2 to 8 shuttles, Max Float 2 to 6, every structure mode, a random warp --
-// and hands every pick's cost table and answer to the check as woven, with
-// the forbidden crossings the real column runs produced. For each pick an
+// and then a second frame of each with a quarter of its crossings changed,
+// which remembers the first (so its tables carry the memory terms), and
+// hands every pick's cost table and answer to the check as woven, with the
+// forbidden crossings the real column runs produced. For each pick an
 // exhaustive search tries every shuttle and every one of the 2^n patterns,
 // keeps those that obey the float limit and the forbidden crossings, and
 // finds the minimum by summing the table: nothing shared with the
@@ -772,7 +774,7 @@ int64_t exhaustive( const encoder::RowTable& table, bool& any )
 
 struct OptimalTally
 {
-	int rows = 0, exact = 0, infeasible = 0, invalidAnswers = 0, greedyWorse = 0;
+	int rows = 0, exact = 0, infeasible = 0, invalidAnswers = 0, greedyWorse = 0, greedyRows = 0;
 	long long programmes = 0;
 };
 
@@ -833,6 +835,15 @@ int runOptimal( int perturb = 0, bool quiet = false )
 		loom::Cloth cloth;
 		loom::Weave( means.data(), s, cloth );
 
+		//A second frame, a quarter of its crossings changed, that REMEMBERS
+		//the first: its tables carry the memory terms as well.
+		std::vector< float > next = means;
+		for( size_t k = 0; k < next.size(); ++k )
+			if( weave::Hash( seed, 9u, static_cast< uint32_t >( k / 4 ) ) % 4u == 0 )
+				next[ k ] = static_cast< float >( weave::Hash( seed, 10u, static_cast< uint32_t >( k ) ) % 1001u ) / 1000.0f;
+		loom::Cloth second;
+		loom::Weave( next.data(), s, second, &cloth );
+
 		//The same picture through the greedy weaver, for the negative
 		//control's own count, independent of `perturb`.
 		if( perturb == 0 )
@@ -842,6 +853,7 @@ int runOptimal( int perturb = 0, bool quiet = false )
 				bool any = false, valid = false;
 				const int64_t optimum = exhaustive( table, any );
 				const int64_t cost    = encoder::RowCost( table, result.colour, result.x.data(), valid );
+				++woven.greedyRows;
 				if( !valid || cost > optimum )
 					++woven.greedyWorse;
 			};
@@ -886,7 +898,7 @@ int runOptimal( int perturb = 0, bool quiet = false )
 	const bool arbitraryOk = arbitrary.exact == arbitrary.rows && arbitrary.infeasible == 0 && arbitrary.invalidAnswers == 0;
 	if( !quiet )
 	{
-		std::printf( "optimal, as woven: %d picks (60 random cloths, 4-13 ends, 2-8 shuttles, Max Float 2-6, all modes): "
+		std::printf( "optimal, as woven: %d picks (60 random cloths and a remembering second frame of each, 4-13 ends, 2-8 shuttles, Max Float 2-6, all modes): "
 		             "%d equal the exhaustive search exactly, %d infeasible, %d answers invalid; %.2f colour programmes a pick  %s\n",
 		             woven.rows, woven.exact, woven.infeasible, woven.invalidAnswers,
 		             woven.rows ? static_cast< double >( woven.programmes ) / woven.rows : 0.0, verdict( wovenOk ) );
@@ -894,7 +906,7 @@ int runOptimal( int perturb = 0, bool quiet = false )
 		             "%d exact, %d infeasible, %d invalid  %s\n",
 		             arbitrary.rows, arbitrary.exact, arbitrary.infeasible, arbitrary.invalidAnswers, verdict( arbitraryOk ) );
 		if( perturb == 0 )
-			std::printf( "optimal: the greedy weaver is worse than the optimum on %d of %d woven picks\n", woven.greedyWorse, woven.rows );
+			std::printf( "optimal: the greedy weaver is worse than the optimum on %d of %d woven picks\n", woven.greedyWorse, woven.greedyRows );
 		std::printf( "%s\n", wovenOk && arbitraryOk ? "optimal: every pick is exactly optimal and every table was feasible" : "optimal: FAILURES" );
 	}
 	return ( wovenOk ? 0 : 1 ) + ( arbitraryOk ? 0 : 1 );
@@ -1343,13 +1355,16 @@ int runDistance( int width, int height, int perturb = 0, bool quiet = false )
 //---------------------------------------------------------------------------
 // --resize
 //
-// The one state across frames is the shuttles (the clip's k-means, warm-
-// started). Six frames of the card at the raster given, then the SAME
+// Two things persist across frames, both on the CPU and neither the size
+// of the raster: the shuttles (the clip's k-means, warm-started) and the
+// loom's memory of its last frame (the grid's lifts, shuttles and
+// structures). Six frames of the card at the raster given, then the SAME
 // instance handed a differently sized input, as a host does: the k-means
 // must start from the shuttles it had, bit for bit, and must not have cold-
-// started again. Then back.
+// started again; and since the grid (160 ends, Picks Auto at 16:9) is the
+// same, the loom must have remembered. Then back.
 //
-// Negative control: a palette that forgets itself on a resize.
+// Negative control: shuttles and loom that forget themselves on a resize.
 //---------------------------------------------------------------------------
 int runResize( int width, int height, int perturb = 0, bool quiet = false )
 {
@@ -1372,10 +1387,15 @@ int runResize( int width, int height, int perturb = 0, bool quiet = false )
 		bool same        = seed.size() == before.size();
 		for( size_t k = 0; same && k < seed.size(); ++k )
 			same = std::memcmp( &seed[ k ], &before[ k ], sizeof( palette::Colour ) ) == 0;
-		const bool ok = same && session.plugin.KMeansForTest().ColdStarts() == coldBefore;
+		//The grid is 160 x Auto: the same 90 picks at every 16:9 raster, so
+		//the loom must also have remembered its last frame.
+		const bool remembered = session.plugin.ClothForTest().remembered;
+		const bool ok         = same && remembered && session.plugin.KMeansForTest().ColdStarts() == coldBefore;
 		if( !quiet )
-			std::printf( "resize %s to %dx%d at frame %d: started from the shuttles it had: %s; cold starts %d  %s\n", what, w, h, frame,
-			             same ? "yes" : "NO", session.plugin.KMeansForTest().ColdStarts(), verdict( ok ) );
+			std::printf( "resize %s to %dx%d at frame %d: started from the shuttles it had: %s; cold starts %d; the loom remembered its "
+			             "last frame (%d x %d): %s  %s\n",
+			             what, w, h, frame, same ? "yes" : "NO", session.plugin.KMeansForTest().ColdStarts(), session.plugin.ClothForTest().ends,
+			             session.plugin.ClothForTest().picks, remembered ? "yes" : "NO", verdict( ok ) );
 		if( !ok )
 			++failures;
 	};
@@ -1387,7 +1407,7 @@ int runResize( int width, int height, int perturb = 0, bool quiet = false )
 	step( 8, width, height, "back" );
 	session.end();
 	if( !quiet )
-		std::printf( "%s\n", failures == 0 ? "resize: the shuttles survive a change of raster" : "resize: FAILURES" );
+		std::printf( "%s\n", failures == 0 ? "resize: the shuttles and the loom's memory survive a change of raster" : "resize: FAILURES" );
 	return failures;
 }
 
@@ -1412,7 +1432,7 @@ int runNegative( int width, int height )
 		{ "twill with twills that do not step              ", runTwill( width, height, weave::kPerturbTwillStep0, true ) },
 		{ "shuttle with odd ends in the next shuttle       ", runShuttle( width, height, weave::kPerturbTwoWefts, true ) },
 		{ "distance with each pick's weft swapped          ", runDistance( width, height, weave::kPerturbScramble, true ) },
-		{ "resize with a palette that forgets on a resize  ", runResize( width, height, weave::kPerturbColdResize, true ) },
+		{ "resize with a loom that forgets on a resize     ", runResize( width, height, weave::kPerturbColdResize, true ) },
 	};
 	int failures = 0;
 	for( const Control& c : controls )

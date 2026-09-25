@@ -43,10 +43,15 @@ const Encoding& encoding()
 	return e;
 }
 
-int32_t quantise( float squaredError )
+/// A squared error (never negative) to cost units, rounded half up.
+int64_t quantise( float squaredError )
 {
-	return static_cast< int32_t >( std::lround( static_cast< double >( squaredError ) * kCostScale ) );
+	return static_cast< int64_t >( squaredError * static_cast< float >( kCostScale ) + 0.5f );
 }
+
+/// Eight lanes: the family (at most seven structures) padded, so the
+/// nearest-mixture search is one fixed-length loop the compiler vectorises.
+constexpr int kLanes = 8;
 
 float error2( const palette::Colour& a, const palette::Colour& b )
 {
@@ -68,6 +73,7 @@ void Weave( const float* means, const Settings& s, Cloth& out, const Cloth* prev
 	out.lift.assign( static_cast< size_t >( n ) * s.picks, 0 );
 	out.weft.assign( static_cast< size_t >( s.picks ), 0 );
 	out.structure.assign( static_cast< size_t >( n ) * s.picks, 0 );
+	out.remembered      = false;
 	out.shuttleCount    = K;
 	out.mode            = s.mode;
 	out.forcedStructure = s.forcedStructure;
@@ -81,6 +87,7 @@ void Weave( const float* means, const Settings& s, Cloth& out, const Cloth* prev
 	const bool remember = previous != nullptr && previous != &out && previous->ends == n && previous->picks == s.picks
 	                      && previous->shuttleCount == K && previous->mode == s.mode && previous->forcedStructure == s.forcedStructure
 	                      && previous->lift.size() == out.lift.size();
+	out.remembered = remember;
 
 	//-----------------------------------------------------------------
 	// Per frame: the family, and every (structure, shuttle) mixture in
@@ -131,6 +138,33 @@ void Weave( const float* means, const Settings& s, Cloth& out, const Cloth* prev
 	std::vector< uint8_t > chosen( static_cast< size_t >( K ) * n );
 	std::vector< palette::Colour > carry( static_cast< size_t >( n ) ), residual( static_cast< size_t >( n ) );
 	std::vector< palette::Colour > targetEncoded( static_cast< size_t >( n ) );
+	std::vector< uint8_t > lattice( static_cast< size_t >( n ), 0 );
+	std::vector< uint8_t > pattern( static_cast< size_t >( levels ) * n, 0 );
+	//Each structure's repeat, tiled once: WarpUp at every crossing of every
+	//pick was a tenth of the frame in divisions. The perturbation that stops
+	//a twill stepping still goes through WarpUp, here.
+	constexpr int kMaxRepeat = 5;
+	std::vector< int > repeat( static_cast< size_t >( levels ) );
+	std::vector< uint8_t > tiles( static_cast< size_t >( levels ) * kMaxRepeat * kMaxRepeat, 0 );
+	for( int l = 0; l < levels; ++l )
+	{
+		const int R                          = weave::Repeat( family[ l ] );
+		repeat[ static_cast< size_t >( l ) ] = R;
+		for( int jj = 0; jj < R; ++jj )
+			for( int ii = 0; ii < R; ++ii )
+				tiles[ ( static_cast< size_t >( l ) * kMaxRepeat + jj ) * kMaxRepeat + ii ] = weave::WarpUp( family[ l ], ii, jj, s.perturb ) ? 1 : 0;
+	}
+	//The mixtures again, as three eight-lane arrays a shuttle, padded far away.
+	std::vector< float > lanes( static_cast< size_t >( K ) * 3 * kLanes, 1.0e6f );
+	for( int c = 0; c < K; ++c )
+		for( int l = 0; l < levels; ++l )
+		{
+			const palette::Colour& m = mixEncoded[ static_cast< size_t >( l ) * K + c ];
+			lanes[ ( static_cast< size_t >( c ) * 3 + 0 ) * kLanes + l ] = m.r;
+			lanes[ ( static_cast< size_t >( c ) * 3 + 1 ) * kLanes + l ] = m.g;
+			lanes[ ( static_cast< size_t >( c ) * 3 + 2 ) * kLanes + l ] = m.b;
+		}
+	const int latticeStep = M > 0 ? weave::LatticeStep( M + 1 ) : 1;
 	std::vector< uint8_t > columnValue( static_cast< size_t >( n ), 0 );
 	std::vector< int > columnRun( static_cast< size_t >( n ), 0 );
 
@@ -143,27 +177,49 @@ void Weave( const float* means, const Settings& s, Cloth& out, const Cloth* prev
 			targetEncoded[ static_cast< size_t >( i ) ] =
 				palette::Colour{ enc( t[ 0 ] ) + kCarry * k.r, enc( t[ 1 ] ) + kCarry * k.g, enc( t[ 2 ] ) + kCarry * k.b };
 		}
+		//The tie lattice along this pick: ( i + s j ) mod ( M + 1 ) == 0.
+		for( int i = 0; i < n; ++i )
+			lattice[ static_cast< size_t >( i ) ] =
+				M > 0 && ( static_cast< unsigned >( i ) + static_cast< unsigned >( latticeStep ) * static_cast< unsigned >( j ) ) % static_cast< unsigned >( M + 1 ) == 0;
+
+		//Each structure's pattern along this pick, from its tiled repeat.
+		for( int l = 0; l < levels; ++l )
+		{
+			const int R          = repeat[ static_cast< size_t >( l ) ];
+			const uint8_t* line  = tiles.data() + ( static_cast< size_t >( l ) * kMaxRepeat + static_cast< size_t >( j % R ) ) * kMaxRepeat;
+			uint8_t* out         = pattern.data() + static_cast< size_t >( l ) * n;
+			for( int i = 0, ii = 0; i < n; ++i, ii = ii + 1 == R ? 0 : ii + 1 )
+				out[ i ] = line[ ii ];
+		}
+
 		for( int c = 0; c < K; ++c )
 		{
+			const float* laneR = lanes.data() + ( static_cast< size_t >( c ) * 3 + 0 ) * kLanes;
+			const float* laneG = lanes.data() + ( static_cast< size_t >( c ) * 3 + 1 ) * kLanes;
+			const float* laneB = lanes.data() + ( static_cast< size_t >( c ) * 3 + 2 ) * kLanes;
 			for( int i = 0; i < n; ++i )
 			{
 				//Tone to structure: the mixture nearest the target, on the
 				//encoding. On the line from warp to weft this is the nearest
 				//coverage by tone; off it, a crossing whose colour this shuttle
 				//cannot give falls back towards the warp instead of painting
-				//the wrong hue at the right luminance.
+				//the wrong hue at the right luminance. Ties go to the lower
+				//coverage.
 				const palette::Colour& te = targetEncoded[ static_cast< size_t >( i ) ];
-				int best    = 0;
-				float bestD = error2( te, mixEncoded[ static_cast< size_t >( c ) ] );
-				for( int l = 1; l < levels; ++l )
+				float distance[ kLanes ];
+				for( int l = 0; l < kLanes; ++l )
 				{
-					const float d = error2( te, mixEncoded[ static_cast< size_t >( l ) * K + c ] );
-					if( d < bestD )
+					const float dr = te.r - laneR[ l ], dg = te.g - laneG[ l ], db = te.b - laneB[ l ];
+					distance[ l ] = dr * dr + dg * dg + db * db;
+				}
+				int best    = 0;
+				float bestD = distance[ 0 ];
+				for( int l = 1; l < levels; ++l )
+					if( distance[ l ] < bestD )
 					{
-						bestD = d;
+						bestD = distance[ l ];
 						best  = l;
 					}
-				}
 				const size_t cell = static_cast< size_t >( j ) * n + i;
 				int64_t E         = quantise( bestD );
 				if( remember && family[ best ] != previous->structure[ cell ] )
@@ -172,7 +228,7 @@ void Weave( const float* means, const Settings& s, Cloth& out, const Cloth* prev
 					for( int l = 0; l < levels; ++l )
 						if( family[ l ] == previous->structure[ cell ] )
 						{
-							const int64_t kept = quantise( error2( te, mixEncoded[ static_cast< size_t >( l ) * K + c ] ) );
+							const int64_t kept = quantise( distance[ l ] );
 							if( kept <= E + kHoldStructure )
 							{
 								best = l;
@@ -180,9 +236,9 @@ void Weave( const float* means, const Settings& s, Cloth& out, const Cloth* prev
 							}
 						}
 				}
-				const int d       = weave::WarpUp( family[ best ], i, j, s.perturb ) ? 1 : 0;
+				const int d       = pattern[ static_cast< size_t >( best ) * n + i ];
 				const int64_t tie = kTie + quantise( error2( te, d == 1 ? weftEncoded[ static_cast< size_t >( c ) ] : warpEncoded ) )
-				                    - ( M > 0 && weave::OnTieLattice( i, j, M ) ? kLattice : 0 );
+				                    - ( lattice[ static_cast< size_t >( i ) ] ? kLattice : 0 );
 				const int64_t shuttleHold = remember && previous->weft[ static_cast< size_t >( j ) ] != c ? kHoldShuttle : 0;
 				table.At( c, i, d )     = E + shuttleHold;
 				table.At( c, i, 1 - d ) = E + tie + shuttleHold;

@@ -92,7 +92,7 @@ enum Perturb
 	kPerturbCoverage    = 1 << 3,///< every twill one warp crossing heavier per repeat
 	kPerturbTwoWefts    = 1 << 4,///< the render draws odd ends in the next shuttle's colour
 	kPerturbScramble    = 1 << 5,///< each pick's weft replaced by a hashed palette entry
-	kPerturbColdResize  = 1 << 6,///< the palette forgets itself when the raster changes
+	kPerturbColdResize  = 1 << 6,///< the shuttles and the loom forget themselves when the raster changes
 };
 
 /// Warp on top at end i, pick j, for this structure. Phase-aligned: i and j

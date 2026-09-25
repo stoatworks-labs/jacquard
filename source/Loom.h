@@ -108,6 +108,7 @@ struct Cloth
 	int forcedStructure = -1;
 	int64_t cost        = 0;         ///< the sum of the picks' programme costs
 	int infeasiblePicks = 0;         ///< always 0 unless the model is perturbed
+	bool remembered     = false;     ///< whether the last frame was remembered
 	int programmes      = 0;         ///< colour programmes run, over the frame
 };
 
