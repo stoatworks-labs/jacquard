@@ -17,7 +17,7 @@ namespace stoatworks::about
     inline constexpr auto slug = "jacquard";
     inline constexpr auto hook = "The clip woven on a jacquard loom, for Resolume";
     inline constexpr auto licence = "MIT";
-    inline constexpr auto guide = "";
+    inline constexpr auto guide = "https://stoatworks-labs.com/software/jacquard/guide/";
     inline constexpr auto page = "https://stoatworks-labs.com/software/jacquard/";
     inline constexpr auto repo = "https://github.com/stoatworks-labs/jacquard";
     inline constexpr auto versionFallback = "v0.1.0";
