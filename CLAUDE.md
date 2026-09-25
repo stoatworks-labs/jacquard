@@ -2,7 +2,7 @@
 
 The picture woven on a jacquard loom, as an FFGL **effect** for Resolume Arena/Avenue.
 C++/GLSL, CMake MODULE → universal `.bundle` (macOS) + Windows `.dll`. MIT.
-v0.1.0, released 2026-09-25 (tranche five) at github.com/stoatworks-labs/jacquard; never
+v0.1.1, released 2026-09-25 (tranche five; v0.1.0 the same day) at github.com/stoatworks-labs/jacquard; never
 loaded into Resolume on macOS; gated in Arena on Windows (see AGENTS.md).
 
 Read `AGENTS.md` before changing the encoder, the loom, the structures or the render pass.
@@ -42,6 +42,8 @@ Read `AGENTS.md` before changing the encoder, the loom, the structures or the re
 - One weft colour a pick, a shuttle's: `./build/jqtest --shuttle`
 - From a distance, nearer the picture than any single colour: `./build/jqtest --distance`
 - The shuttles and the loom's memory survive a resize: `./build/jqtest --resize`
+- Over a black ground the ties scatter, read from the picture: `./build/jqtest --ties`
+  (`--source figures|disc` renders its grounds; `--perturb 256` is v0.1.0's loom exactly)
 - The checks can fail: `./build/jqtest --negative`; one perturbation verbosely:
   `./build/jqtest --perturb BITS --floats` (bits in `Weave.h`)
 - Names ≤ 16 characters and unique: `./build/jqtest --names`
@@ -62,6 +64,10 @@ Read `AGENTS.md` before changing the encoder, the loom, the structures or the re
 - **Costs are measured on the sRGB encoding**, and the error carried down the cloth is
   carried on the encoding too, clamped to the range the threads span. Linear light made
   every pick black; a clamped target made every pick grey (AGENTS.md, traps).
+- **A tie off the satin lattice pays for its speck twice** (kOffLattice, v0.1.1). Without it
+  the carry, which varies from end to end even over flat black, placed each bright pick's
+  ties in the same ends and they lined up into vertical dashes (AGENTS.md, traps). The
+  lattice step is a satin counter (ties farthest apart), not the first coprime step.
 - **The loom remembers its last frame** (lifts, shuttles, structures) as small integer
   costs in each pick's table, so a still clip holds still. It forgets when the grid, the
   shuttle count or the structure mode changes.

@@ -146,12 +146,38 @@ bool WarpUp( int structure, int i, int j, int perturb )
 	}
 }
 
-int LatticeStep( int period )
+int LatticeStep( int period, int perturb )
 {
+	if( perturb & kPerturbTies010 )
+	{
+		for( int s = 2; s <= period - 2; ++s )
+			if( std::gcd( s, period ) == 1 )
+				return s;
+		return 1;
+	}
+	//A weaver's satin counter: of the steps coprime with the period, the one
+	//whose ties lie farthest apart -- the longest shortest vector of the
+	//lattice { ( i, j ) : i + s j = 0 mod period }, in crossings -- so no
+	//diagonal is shorter than it must be. The smallest such step on a draw.
+	int best = 1, bestLength = 0;
 	for( int s = 2; s <= period - 2; ++s )
-		if( std::gcd( s, period ) == 1 )
-			return s;
-	return 1;
+	{
+		if( std::gcd( s, period ) != 1 )
+			continue;
+		int shortest = period * period;
+		for( int b = 1; b < period; ++b )
+		{
+			const int a  = ( period - ( s * b ) % period ) % period;//-s b mod period; umod wants non-negative
+			const int da = std::min( a, period - a );
+			shortest     = std::min( shortest, da * da + b * b );
+		}
+		if( shortest > bestLength )
+		{
+			bestLength = shortest;
+			best       = s;
+		}
+	}
+	return best;
 }
 
 bool OnTieLattice( int i, int j, int maxFloat )

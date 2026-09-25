@@ -9,9 +9,10 @@
 > each of eight weave structures shows exactly its stated weft ratio over 3,600 crossings; a
 > twill's diagonal lands at exactly one end across per pick down; every pick shows one weft
 > colour and it is a shuttle's; from a distance the cloth is nearer the picture than any
-> single colour; the shuttles and the loom's memory survive a resize; and the cloth is opaque
-> over a clip with alpha — with eight negative controls that prove each check can fail, at
-> two rasters and on a software renderer. It has **never been loaded into Resolume on macOS**;
+> single colour; the shuttles and the loom's memory survive a resize; the cloth is opaque
+> over a clip with alpha; and over a black ground the ties scatter rather than line up down
+> the ends — with nine negative controls that prove each check can fail, at two rasters and
+> on a software renderer. It has **never been loaded into Resolume on macOS**;
 > there it is loaded by [oxbow](https://github.com/stoatworks-labs/oxbow), which is a real FFGL
 > host and is not Resolume. On Windows it has been gated in Resolume Arena 7.27.1 on software
 > rendering. See [Status](#status).
@@ -87,8 +88,10 @@ with an **exactly optimal** programme under both float limits. What falls out:
   a distance — the error each crossing is left with is carried to the next pick until one
   pays it.
 - **Ties sprinkled through the solids.** A solid is one unbroken float; the programme ties
-  it at least cost, in satin order where nothing else decides, and a pick's ties are always
-  its own shuttle's colour, so a bright pick crossing a black ground leaves a line of specks.
+  it at least cost, and a tie out of satin order costs its speck twice, so the ties scatter
+  in satin order. A pick's ties are always its own shuttle's colour, so a bright pick
+  crossing a black ground leaves a scatter of specks. (v0.1.0 lined them up into short
+  vertical dashes; v0.1.1 fixed it — see Status.)
 - **A picture from across the room and thread up close.** Each crossing is drawn as its top
   thread, a lit cylinder that dips under at the end of every float, with the other thread in
   shadow in the gap; Zoom goes from the picture to the cloth.
@@ -117,7 +120,9 @@ keeps a black ground black.
 
 ## Status
 
-**v0.1.0, released 25 September 2026, and honestly early.** There is a
+**v0.1.1, released 25 September 2026, and honestly early.** v0.1.1 fixes the one defect
+filming v0.1.0 found: ties over a black ground now scatter in satin order instead of lining
+up into short vertical dashes (below). There is a
 [user guide](https://stoatworks-labs.com/software/jacquard/guide/) ([PDF](docs/USER-GUIDE.pdf)),
 a [project page](https://stoatworks-labs.com/software/jacquard/) and a
 [browser demo](https://jacquard-demo.stoatworks-labs.com/). Everything below was measured on
@@ -131,16 +136,17 @@ again at 320×180 on Apple's **software renderer**. What it establishes, in numb
 
 | check | result |
 | --- | --- |
-| `--optimal` | 960 picks woven from 60 random cloths (4–13 ends, 2–8 shuttles, Max Float 2–6, every structure mode) and a second frame of each that remembers the first, plus 200 arbitrary integer tables: the programme's cost **equals** an exhaustive search over every shuttle and every pattern, exactly, on every one, and every table was feasible; the greedy weaver is worse on 49 of 480 |
+| `--optimal` | 960 picks woven from 60 random cloths (4–13 ends, 2–8 shuttles, Max Float 2–6, every structure mode) and a second frame of each that remembers the first, plus 200 arbitrary integer tables: the programme's cost **equals** an exhaustive search over every shuttle and every pattern, exactly, on every one, and every table was feasible; the greedy weaver is worse on 54 of 480 |
 | `--floats` | 48 cloths (four modes × card, noise, black, white × Max Float 2, 4, 6), counted on the grid and read back from the picture: **no float over the limit**, 0 infeasible picks |
-| `--coverage` | each structure forced over a flat field, read from the picture over 60 × 60 crossings: warp satin 720, 3/1 twill 900, 2/1 1200, plain and 2/2 1800, 1/2 2400, 1/3 2700, weft satin 2880 — **exactly** 1/5, 1/4, 1/3, 1/2, 2/3, 3/4, 4/5; the tied solids 612 (0.17) |
+| `--coverage` | each structure forced over a flat field, read from the picture over 60 × 60 crossings: warp satin 720, 3/1 twill 900, 2/1 1200, plain and 2/2 1800, 1/2 2400, 1/3 2700, weft satin 2880 — **exactly** 1/5, 1/4, 1/3, 1/2, 2/3, 3/4, 4/5; the tied solids **400 of 3,600**, one in nine, the satin minimum (612 in v0.1.0) |
 | `--twill` | the autocorrelation's nearest peak at **exactly** one end across per pick down, in pixels: 45° for square crossings, 63.43° at Thread Aspect 2, 26.57° at 0.5 |
 | `--shuttle` | on the card and a random picture with four shuttle sets: **0** crossings off the colour the grid says, **0** picks with two weft colours, **0** off the shuttles |
 | `--distance` | 8 × 8-crossing blocks against the source, on the encoding: RMS error **0.58×** (shaded) and **0.53×** (flat) that of the best single colour at 1280×720 |
 | `--resize` | through a change of raster the shuttles are bit-identical and the loom keeps its memory |
 | `--alpha` | over a half-transparent card: alpha 255 everywhere at Mix 1, the source byte for byte at Mix 0, the blend to one step at Mix 0.5 |
-| `--negative` | eight perturbed models — a greedy weaver, no float limit, heavier twills, twills that do not step, two wefts a pick, the wefts swapped after the weave, a loom that forgets on a resize, a cloth that takes the clip's alpha — each **fails** its check |
-| mutation | one character of the shipped GLSL (the lift read from the wrong channel) was caught by five checks at both rasters, then reverted |
+| `--ties` | over a black ground crossed by bright picks (two figures and a bar; a disc; Max Float 6 and 10), read from the picture: a bright speck has a speck 1, 2 or 3 picks above it in the same end at most **0.52×** as often as chance (the tolerance is chance itself); v0.1.0's loom, kept as a negative control, **7.9–8.2×** |
+| `--negative` | nine perturbed models — a greedy weaver, no float limit, heavier twills, twills that do not step, two wefts a pick, the wefts swapped after the weave, a loom that forgets on a resize, a cloth that takes the clip's alpha, v0.1.0's loom (byte-identical to the v0.1.0 binary on footage) — each **fails** its check |
+| mutation | one character of the shipped GLSL (the lift read from the wrong channel) was caught by five checks at both rasters, then reverted; for v0.1.1, one character of the C++ cost (`kOffLattice` 1 → 0) was caught by `--ties` |
 | `tools/sweep.py` | all **13** controls measurably change the picture, at 320×180 and 480×270 |
 | shaders | all 3 compile through `glslc`, and none uses a GLSL 4.10 reserved word |
 | `--pipe` | 2.5 frames in, exactly 2 out; an unknown cue refused (exit 2); a failed render and a closed stdout exit 1, not SIGPIPE; an option steps between cues |
@@ -151,20 +157,35 @@ machine shared with other builds:
 
 | grid | 1280×720 | 1920×1080 | 3840×2160 | of which the CPU encoder |
 | --- | --- | --- | --- | --- |
-| defaults, 160 × 90 crossings | 2.0 ms | 2.0 ms | 2.1 ms | 1.3 ms |
-| largest, 320 × 180 crossings | 5.6 ms | 5.9 ms | 6.9 ms | 4.8 ms |
+| defaults, 160 × 90 crossings | 1.8 ms | 2.0 ms | 2.0 ms | 1.3 ms |
+| largest, 320 × 180 crossings | 5.5 ms | 5.7 ms | 6.7 ms | 4.7 ms |
 
-(The release build's `verify.sh`, 2026-09-25; an earlier run on a busier machine read 2.2–3.2 ms
-and 5.7–7.8 ms.)
+(v0.1.1's `verify.sh`, 2026-09-25; v0.1.0's read 2.0–2.1 ms and 5.6–6.9 ms.)
 
 ### In Resolume Arena, on Windows
 
 On Windows it has: the DLL release.yml built from this source loads in Resolume Arena 7.27.1 on software rendering (win-lab, Mesa llvmpipe, no GPU), registers as `SW Jacquard` / `JQ01` / effect, all 19 host controls match what the plugin declares, it renders, Arena's log stays clean, and all 14 valued controls move the picture (35 to 66 levels against a noise floor of 0): 9 of the fleet Arena gate's 9 checks, one run. The gate's picture is a still, so it says nothing about how the cloth moves; software rendering says nothing about a GPU or about speed. MSVC compiled it first time.
 
+### v0.1.1: ties over black scatter
+
+Filming v0.1.0 found that where a bright pick crosses a black ground the ties sat in the
+same ends pick after pick. The cause was measured, not guessed: the error the loom carries
+down the cloth varies from end to end even over flat black, and it runs down the ends, so a
+bright tie cost least in the same few ends every pick, by five times the lattice's
+preference for satin order. v0.1.1 charges a tie out of satin order its speck twice, which
+only the picture itself can outweigh, picks the lattice's step as a weaver picks a satin
+counter (ties as far apart as the period allows), and doubles the memory's hold on each
+pick's shuttle so busy footage is no less steady. Measured over Resolume's demo clips
+through `--pipe` at 960×540: on the dancers a bright speck over black had a speck two picks
+above it 26% of the time, and now 0.1%; the share of pixels changing from frame to frame
+went from 13.2% to 11.3% there, and no clip measured changes more than in v0.1.0 (the
+skulls 28.3% → 27.4%, SpaceUniverse 1.5% → 1.5%, a held frame 0% → 0%); the far error moved
+by −4% to +2%. The new `--ties` check holds it. The project video shows v0.1.0.
+
 ### What filming the release video found
 
 The video is rendered through `jqtest --pipe` over Resolume's demo clips. Filming found no
-defect in the code, and three facts now in the guide. **Plain on a grey clip loses the picture
+defect in the code, and three facts now in the guide (the second fixed in v0.1.1). **Plain on a grey clip loses the picture
 entirely**: every crossing is the same plain weave and a pick is one shuttle, so only each pick's
 average is left, and a grey clip's rows all average alike. **Over a black ground crossed by a
 bright pick the ties line up** into short vertical dashes with dark picks between, not a satin
@@ -191,9 +212,10 @@ runs the plugin's own cells and render shaders in WebGL2, spliced in from
 character by `demo/tools/check_shaders.py` from `tools/verify.sh`. Its CPU half — the
 k-means that dyes the shuttles and the loom with its exact row programme — is a
 **hand port to JavaScript** (`demo/loom.js`), and nothing checks a port but a reader.
-It was compared with the C++ once: the same cloth on every crossing of 31 frames of
-fixed means, and against `jqtest --pipe` on the page's own input frames the same
-picture to within one 8-bit level, most frames on every pixel (see AGENTS.md). The
+It was compared with the C++ at v0.1.0 and again at v0.1.1: the same cloth on every
+crossing of 41 frames of fixed means (black grounds included since v0.1.1), and against
+`jqtest --pipe` on the page's own input frames the same picture to within one 8-bit level,
+most frames on every pixel (see AGENTS.md). The
 same limits hold there as here: each pick is exact given the picks above it and the
 cloth is greedy between picks, the float limit is enforced inside each pick, one weft
 colour a pick, and the output alpha is 1. Ends, Picks, Max Float and Shuttles are
@@ -225,6 +247,7 @@ The offline harness renders the real plugin class headlessly:
 ./build/jqtest --optimal                               # the programme against an exhaustive search
 ./build/jqtest --floats --coverage --twill             # each claim, measured on the picture
 ./build/jqtest --shuttle --distance --resize --alpha
+./build/jqtest --ties                                  # over black, ties scatter
 ./build/jqtest --negative                              # and the checks can fail
 ./build/jqtest --bench                                 # 720p, 1080p and 4K
 python3 tools/sweep.py                                 # no control is silently dead
