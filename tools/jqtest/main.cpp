@@ -19,7 +19,9 @@
 		                                end width ), by the autocorrelation peak
 		jqtest --shuttle                every pick shows one weft colour, a shuttle's
 		jqtest --distance               from a distance the cloth is the picture
-		jqtest --resize                 a resize mid-run keeps the shuttles
+		jqtest --resize                 a resize mid-run keeps the shuttles and the
+		                                loom's memory
+		jqtest --alpha                  the cloth is opaque over a clip with alpha
 		jqtest --negative               every check above can FAIL
 		jqtest --bench                  the render cost, and the CPU encoder's share
 		jqtest --dump-shaders DIR       the exact GLSL the plugin compiles
@@ -1412,6 +1414,55 @@ int runResize( int width, int height, int perturb = 0, bool quiet = false )
 }
 
 //---------------------------------------------------------------------------
+// --alpha
+//
+// The output alpha is a decision, not an accident: Resolume's demo clips are
+// DXV with alpha (88% of a Galactucity frame is fully transparent), and an
+// effect that passed the clip's alpha through would weave a cloth with holes
+// in it. A cloth has none. On the card with its left half at alpha 0:
+//
+//   Mix 1    every output alpha is 255;
+//   Mix 0    the output IS the source, byte for byte, alpha included;
+//   Mix 0.5  every alpha is mix( a, 255, 0.5 ), to one 8-bit step (the
+//            blend is in float, the store rounds).
+//
+// Negative control: a cloth that takes the clip's alpha.
+//---------------------------------------------------------------------------
+int runAlpha( int width, int height, int perturb = 0, bool quiet = false )
+{
+	Image source = buildCard( width, height, 0 );
+	for( int y = 0; y < height; ++y )
+		for( int x = 0; x < width / 2; ++x )
+			source[ ( static_cast< size_t >( y ) * width + x ) * 4 + 3 ] = 0;
+	int failures = 0;
+	for( float mix : { 1.0f, 0.0f, 0.5f } )
+	{
+		Still still;
+		if( !renderStill( width, height, { { "Mix", mix }, { "Thread Shading", 1.0f } }, source, perturb, still ) )
+			return failures + 1;
+		int wrong = 0;
+		for( size_t i = 0; i < source.size(); i += 4 )
+		{
+			const int a = still.picture[ i + 3 ], s = source[ i + 3 ];
+			if( mix == 1.0f && a != 255 )
+				++wrong;
+			else if( mix == 0.0f && std::memcmp( &still.picture[ i ], &source[ i ], 4 ) != 0 )
+				++wrong;
+			else if( mix == 0.5f && std::abs( a - static_cast< int >( std::lround( 0.5 * s + 127.5 ) ) ) > 1 )
+				++wrong;
+		}
+		const bool ok = wrong == 0;
+		if( !quiet )
+			std::printf( "alpha, Mix %.1f, on a card half transparent: %d of %zu pixels wrong  %s\n", mix, wrong, source.size() / 4, verdict( ok ) );
+		if( !ok )
+			++failures;
+	}
+	if( !quiet )
+		std::printf( "%s\n", failures == 0 ? "alpha: the cloth is opaque, and Mix blends the whole RGBA" : "alpha: FAILURES" );
+	return failures;
+}
+
+//---------------------------------------------------------------------------
 // --negative
 //
 // A check that cannot fail is not a check. Each of these perturbs the MODEL
@@ -1433,6 +1484,7 @@ int runNegative( int width, int height )
 		{ "shuttle with odd ends in the next shuttle       ", runShuttle( width, height, weave::kPerturbTwoWefts, true ) },
 		{ "distance with each pick's weft swapped          ", runDistance( width, height, weave::kPerturbScramble, true ) },
 		{ "resize with a loom that forgets on a resize     ", runResize( width, height, weave::kPerturbColdResize, true ) },
+		{ "alpha with a cloth that takes the clip's alpha  ", runAlpha( width, height, weave::kPerturbAlphaThrough, true ) },
 	};
 	int failures = 0;
 	for( const Control& c : controls )
@@ -1701,7 +1753,8 @@ void usage()
 		"  --twill             a twill's diagonal runs at atan( pick height / end width )\n"
 		"  --shuttle           every pick is one weft colour, a shuttle's\n"
 		"  --distance          from a distance the cloth is the picture\n"
-		"  --resize            the shuttles survive a change of raster\n"
+		"  --resize            the shuttles and the loom's memory survive a change of raster\n"
+		"  --alpha             the cloth is opaque; Mix blends the whole RGBA\n"
 		"  --negative          every check above can fail\n"
 		"  --perturb BITS      run the checks against a perturbed model (Weave.h), verbosely\n"
 		"  --bench             time ProcessOpenGL at 720p, 1080p and 4K, default and largest grid\n"
@@ -1778,7 +1831,7 @@ int main( int argc, char** argv )
 		else if( argument == "--pipe" )
 			wantPipe = true;
 		else if( argument == "--optimal" || argument == "--floats" || argument == "--coverage" || argument == "--twill"
-		         || argument == "--shuttle" || argument == "--distance" || argument == "--resize" || argument == "--negative"
+		         || argument == "--shuttle" || argument == "--distance" || argument == "--resize" || argument == "--alpha" || argument == "--negative"
 		         || argument == "--names" )
 			checks.push_back( argument );
 		else
@@ -1855,6 +1908,8 @@ int main( int argc, char** argv )
 				result = runDistance( width, height, perturb );
 			else if( check == "--resize" )
 				result = runResize( width, height, perturb );
+			else if( check == "--alpha" )
+				result = runAlpha( width, height, perturb );
 			else if( check == "--negative" )
 				result = runNegative( width, height );
 			failures += result;

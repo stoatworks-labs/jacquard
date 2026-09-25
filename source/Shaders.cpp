@@ -191,7 +191,9 @@ void main()
 		cloth = colour * mix( 1.0, shade, amount ) + amount * sheen;
 	}
 
-	vec4 woven = vec4( encode( cloth.r ), encode( cloth.g ), encode( cloth.b ), 1.0 );
+	//A cloth has no holes: opaque, whatever the clip's alpha.
+	float opacity = ( Perturb & 128 ) != 0 ? source.a : 1.0;
+	vec4 woven = vec4( encode( cloth.r ), encode( cloth.g ), encode( cloth.b ), opacity );
 	fragColor  = mix( source, woven, MixAmount );
 }
 )";

@@ -61,6 +61,7 @@ jobs:
           ./build/jqtest --shuttle  --size 320x180
           ./build/jqtest --distance --size 320x180
           ./build/jqtest --resize   --size 320x180
+          ./build/jqtest --alpha    --size 320x180
           ./build/jqtest --negative --size 320x180
 
       - name: Controls

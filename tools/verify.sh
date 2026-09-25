@@ -27,6 +27,7 @@
 #                   --distance   from a distance, nearer the picture than
 #                                any single colour
 #                   --resize     the shuttles and the loom's memory survive
+#                   --alpha      the cloth is opaque; Mix blends all of RGBA
 #                   --negative   every one of those FAILS on a perturbed model
 #   software      the same checks at 320x180 on Apple's SOFTWARE renderer,
 #                 which is what GitHub's macOS runners have and which is not
@@ -132,7 +133,7 @@ else
 	printf '%s\n' "$out" | tail -5 | sed 's/^/      /'
 fi
 
-CHECKS="floats coverage twill shuttle distance resize negative"
+CHECKS="floats coverage twill shuttle distance resize alpha negative"
 
 for size in 320x180 1280x720; do
 	step "checks at $size"

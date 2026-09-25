@@ -93,6 +93,7 @@ enum Perturb
 	kPerturbTwoWefts    = 1 << 4,///< the render draws odd ends in the next shuttle's colour
 	kPerturbScramble    = 1 << 5,///< each pick's weft replaced by a hashed palette entry
 	kPerturbColdResize  = 1 << 6,///< the shuttles and the loom forget themselves when the raster changes
+	kPerturbAlphaThrough = 1 << 7,///< the cloth takes the clip's alpha instead of being opaque
 };
 
 /// Warp on top at end i, pick j, for this structure. Phase-aligned: i and j
