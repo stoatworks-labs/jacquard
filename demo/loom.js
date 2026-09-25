@@ -54,10 +54,11 @@ const LOOM_H = {
   kCostScale: 65536.0,
   kTie: 1024,
   kLattice: 512,
+  kOffLattice: 1,
   kCarry: 1.0,
   kCarryLimit: 0.5,
   kHoldLift: 2048,
-  kHoldShuttle: 384,
+  kHoldShuttle: 768,
   kHoldStructure: 256,
 };
 // source/Controls.h
@@ -374,9 +375,25 @@ function gcd(a, b) {
   return a;
 }
 
+/// Weave.cpp's LatticeStep (v0.1.1): of the steps coprime with the period,
+/// the one whose lattice has the longest shortest vector, the smallest on a draw.
 function latticeStep(period) {
-  for (let s = 2; s <= period - 2; s += 1) if (gcd(s, period) === 1) return s;
-  return 1;
+  let best = 1;
+  let bestLength = 0;
+  for (let s = 2; s <= period - 2; s += 1) {
+    if (gcd(s, period) !== 1) continue;
+    let shortest = period * period;
+    for (let b = 1; b < period; b += 1) {
+      const a = (((-s * b) % period) + period) % period;
+      const da = Math.min(a, period - a);
+      shortest = Math.min(shortest, da * da + b * b);
+    }
+    if (shortest > bestLength) {
+      bestLength = shortest;
+      best = s;
+    }
+  }
+  return best;
 }
 
 //===========================================================================
@@ -555,6 +572,7 @@ function solveRow(table, result) {
 const K_COST_SCALE = f32(LOOM_H.kCostScale); // static_cast< float >( kCostScale )
 const K_TIE = LOOM_H.kTie;
 const K_LATTICE = LOOM_H.kLattice;
+const K_OFF_LATTICE = LOOM_H.kOffLattice;
 const K_CARRY = f32(LOOM_H.kCarry);
 const K_CARRY_LIMIT = f32(LOOM_H.kCarryLimit);
 const K_HOLD_LIFT = LOOM_H.kHoldLift;
@@ -754,7 +772,10 @@ export function weave(means, s, previous = null) {
         const er = f32(ter - shown[0]);
         const eg = f32(teg - shown[1]);
         const eb = f32(teb - shown[2]);
-        const tie = K_TIE + quantise(f32(f32(f32(er * er) + f32(eg * eg)) + f32(eb * eb))) - (lattice[i] ? K_LATTICE : 0);
+        // A tie: what it shows, and where. On the lattice it is discounted;
+        // off it, its speck is charged again (Loom.h, v0.1.1).
+        const shownCost = quantise(f32(f32(f32(er * er) + f32(eg * eg)) + f32(eb * eb)));
+        const tie = K_TIE + shownCost + (lattice[i] ? -K_LATTICE : K_OFF_LATTICE * shownCost);
         const at = (c * n + i) * 2;
         table.cost[at + d] = E + shuttleHold;
         table.cost[at + 1 - d] = E + tie + shuttleHold;

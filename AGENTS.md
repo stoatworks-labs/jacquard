@@ -11,7 +11,9 @@ tell anybody this works.
 The picture woven on a jacquard loom, as an FFGL 2.1 effect (`JQ01`, shown as
 `SW Jacquard`) for Resolume Arena and Avenue. C++17 + GLSL 4.10, CMake, universal
 macOS `.bundle` and a Windows `.dll` (built by CI; MSVC compiled it first time).
-MIT, at `github.com/stoatworks-labs/jacquard`. Released v0.1.0 on 2026-09-25.
+MIT, at `github.com/stoatworks-labs/jacquard`. Released v0.1.0 on 2026-09-25, and v0.1.1
+the same evening: ties over a black ground scatter in satin order instead of lining up
+("Ties over black lined up", below).
 
 Built 2026-09-25 in one session from `specs/SPEC-jacquard.md`, `BRIEF.md` and
 `BRIEF-ADDENDUM.md`. Tranche five; Allan's own pick. Templates: **teletext** for the
@@ -53,7 +55,8 @@ So the encoder is an optimiser under constraints, like teletext's.
      kHoldStructure;
    - **costs**, integers (squared error on the encoding x 65536): following the
      structure costs its mixture's error; a tie costs that plus kTie plus the error of
-     the thread it shows, less kLattice on the tie lattice; memory terms on top;
+     the thread it shows, less kLattice on the tie lattice and **plus that error again
+     off it** (kOffLattice, v0.1.1); memory terms on top;
    - **the programme** (`Encoder.cpp`) finds the shuttle and the lift pattern of least
      total cost under both float limits, exactly;
    - **the carry**: target minus mixture, clamped to the threads' range, spread
@@ -165,14 +168,93 @@ kHoldStructure): 0.8–1.0% on the same clip, and on a moving clip (Galactucity)
 tracks the source (10–15% against 14%). Measured with a one-off script through
 `--pipe`; not a check (see Open questions).
 
+### Ties over black lined up (fixed in v0.1.1)
+
+Filming v0.1.0 found it: where a bright pick crosses a black ground, the ties sat in the
+same ends pick after pick, short vertical dashes with dark picks between, not a satin
+scatter. Measured from the picture (`--ties`, and the same measure over the demo clips
+through `--pipe`): on Galactucity a bright speck over black had a speck 2 picks above it
+in the same end **26% of the time** (4,317 of 16,445), where chance is 1.1%.
+
+**The cause, measured** (scratch hooks in Loom.cpp, since removed). Over Galactucity's
+black ground the target is flat (0.0007 rms on the encoding across a pick) but the carry
+is not: 0.025 rms from end to end, and it runs down the ends, so it is much the same pick
+after pick. A bright tie over black costs its speck's squared error against target plus
+carry, so its cost follows the carry: **2,566 units rms across a pick, five times
+kLattice (512)**. Only 17% of the bright ties landed on the lattice (chance 9%); 95% of
+them were chosen, not forced by a warp run. So the programme, exact as ever, put each
+bright pick's ties where the carry made a speck cheapest: the same ends every time.
+Nothing pushes back, because the carry is the target less the STRUCTURE's mixture, so a
+tie's own speck is never owed. That was half of the old guess (the clamp was not it).
+The lift hold is not it either: with kHoldLift 0 the dashes were more regular.
+
+**Why not a small offset.** kLattice at 1000 (the most it can be below kTie, so that a
+tie never pays) changed nothing: 17.8x chance against 17.9x. A constant big enough to
+win (20,000 worked) would let a tie pay wherever it shows little error, and put ties into
+every structure at the lattice (`--coverage` would fail).
+
+**Why not a penalty on a tie below a tie.** The dashes are at lag 2 (a bright pick, a
+dark pick, a bright pick), so a previous-pick penalty cannot see them; a window of picks
+needs per-end history in the costs, the carry would still choose among the ends it left,
+and ties placed by history move whenever the picture does.
+
+**The fix: charge an off-lattice tie its speck twice.** `tie = kTie + shown - kLattice`
+on the lattice (as before) and `kTie + shown + kOffLattice x shown` off it, kOffLattice
+1. It scales with exactly the thing that varies: the carry would have to halve a speck's
+error to move it off the lattice, which only the picture itself does. On-lattice ties
+cost what they did, a tie that shows nearly the target's colour is almost as free as
+before, and the lattice is fixed to the grid, so the ties are deterministic and stay put
+in a still ground whatever moves elsewhere. Integers, so `--optimal` is untouched. Half
+the charge (0.5) left 1.6x chance on the figures ground; 2 was no better than 1.
+
+**Two things it exposed.**
+- **The lattice step was a twill.** LatticeStep took the smallest step coprime with the
+  period: 2 of 11 at the default Max Float 10, whose ties, once they obeyed the lattice,
+  read as diagonal lines. It now takes a weaver's satin counter: of the coprime steps,
+  the one whose ties lie farthest apart (the longest shortest vector of the lattice, the
+  smallest step on a draw). Changed at Max Float 10, 12, 14 and 16 (periods 11, 13, 15,
+  17: steps 3, 5, 4, 4, from 2); the rest were already that. The first C++ draft
+  computed `-s b mod n` through `umod`, which casts a negative to unsigned and is wrong
+  for any period that does not divide 2^32; the demo's port check found it (the JS was
+  right), before anything was committed.
+- **More shuttle changes on busy footage.** The charge makes a pick's total depend more
+  on where the picture's solids fall against the fixed lattice: on the skulls
+  (NoHopeJustFear_44) the picks changing shuttle from frame to frame went from 7.1 to 13.4
+  of 90, and the pixels changing from 28.3% to 30.1%. kHoldShuttle 384 -> 768 brings it
+  to 6.3 picks and 27.4%, and no clip measured is less steady than in v0.1.0.
+
+**Measured before and after**, 120 frames at 960 x 540 through `--pipe` at the defaults
+(alignment and error with Thread Shading 0, steadiness with it on; alignment is a speck
+above a speck, in the same end, 1 / 2 picks up, over chance; steadiness is the share of
+pixels changing by more than 8/255 from one frame to the next after the first ten, the
+source premultiplied by its alpha; error is the RMS on the encoding of 10 x 10-crossing
+block means against the source):
+
+| clip | alignment v0.1.0 | v0.1.1 | steadiness (source) v0.1.0 | v0.1.1 | error v0.1.0 | v0.1.1 |
+| --- | --- | --- | --- | --- | --- | --- |
+| Galactucity, one frame held | 12.8x / 13.7x | 0.00 / 0.00 | 0.00% (0.00%) | 0.00% | 0.0725 | 0.0730 |
+| Galactucity_21 (moving) | 17.7x / 23.3x | 0.09 / 0.10 | 13.2% (10.4%) | 11.3% | 0.0737 | 0.0753 |
+| SpaceUniverse_04 (near still) | 11.9x / 128x | 0.00 / 0.00 | 1.5% (1.9%) | 1.5% | 0.0327 | 0.0314 |
+| Metalive 01 | 10.0x / 8.7x | 0.11 / 0.02 | 13.6% (18.5%) | 12.0% | 0.0919 | 0.0924 |
+| NoHopeJustFear_44 (skulls) | 0.72 / 0.34 | 0.38 / 0.43 | 28.3% (76.5%) | 27.4% | 0.0678 | 0.0685 |
+| Cyberspace_09 | 26.9x / 153x | 3.4x / 5.5x | 16.9% (8.1%) | 16.1% | 0.0655 | 0.0649 |
+
+Cyberspace's v0.1.1 ratios are 2 and 3 specks of about 900 (p = 0.0006), against 17 and
+89 in v0.1.0; the skulls have almost no black ground. The error is up by 0.2–2% on four
+clips and down on two: ties in satin order are a few more than the fewest (Galactucity's
+held frame 16,320 specks against 15,960). The script is not in the repo (the numbers
+need the demo clips); `--ties` is the check that holds the claim.
+
 ### Least-cost is not fewest
 
-A forced solid on a flat field ties 612 of 3600 crossings (0.17) at Max Float 8, not
-the 1 in 9 the lattice alone would give: the carried target varies by more than the
-lattice's discount from crossing to crossing, the ties land off the lattice, and the
-column runs then force more. The programme is exact for the costs it is given; "least
-cost" is the claim, not "fewest ties". `--coverage` states the solids' tie density and
-asserts only the lower bound the float limit implies.
+In v0.1.0 a forced solid on a flat field tied 612 of 3600 crossings (0.17) at Max Float
+8, not the 1 in 9 the lattice alone would give: the carried target varied by more than
+the lattice's discount from crossing to crossing, the ties landed off the lattice, and
+the column runs then forced more. The same cause as the aligned ties, above; since
+v0.1.1 the solids tie **exactly 400 of 3600, one in nine**, in satin order. The
+programme is exact for the costs it is given; "least cost" is the claim, not "fewest
+ties". `--coverage` states the solids' tie density and asserts only the lower bound the
+float limit implies.
 
 ### A CPU encoder spends its time in arithmetic nobody sees
 
@@ -234,6 +316,7 @@ its top thread's colour, sRGB-encoded in float and stored to 8 bits.
 | `--shuttle` | every crossing's colour against the grid; one weft colour a pick; that colour a shuttle's | **one 8-bit step**, as above; nothing else | as `--floats` |
 | `--distance` | RMS error of 8 x 8-crossing block means on the encoding, against the frame's mean colour everywhere | **comparative**: the cloth must beat the best single colour; no fitted number | block means average many pixels, so rasteriser rounding is noise far below the margin (ratios 0.54–0.58 against a threshold of 1) |
 | `--resize` | the k-means seed after a resize equals the centres before it, bit for bit; the loom remembered | **exact** (memcmp): CPU state | the grid (160 x Auto) is the same at every 16:9 raster, which is why memory must survive |
+| `--ties` | over a black ground (every source pixel of the crossing black), a speck (a crossing showing neither the warp nor anything darker) with a speck 1, 2 or 3 picks above it in the same end, against the share of black crossings that are specks | **chance itself**: at no lag above p, what ties with no vertical order would give; no fitted number; at least 100 specks | the grid (160 x 90) is the same at 320 x 180 and 1280 x 720, and each crossing is classified at its centre pixel as `--floats` does; worst 0.52 of chance at 1280 x 720, 0.30 at 320 x 180, v0.1.0 7.9–8.2x |
 | `--alpha` | output alpha at Mix 1, 0, 0.5 over a half-transparent card | Mix 1: **exactly 255**; Mix 0: **byte-identical** to the source (`mix( x, y, 0 )` multiplies by exact 1 and 0, no cancellation); Mix 0.5: **one 8-bit step** | the source is sampled at pixel centres, which a linear filter returns exactly |
 | sweep | any subpixel differs | ≥ 1 | 320 x 180 and 480 x 270 |
 
@@ -247,7 +330,7 @@ the same means.
 
 ### The negative controls
 
-`jqtest --negative` runs eight; `--perturb BITS` runs any check verbosely against one.
+`jqtest --negative` runs nine; `--perturb BITS` runs any check verbosely against one.
 Each perturbs the *plugin's* model through a hook the shipped plugin carries at zero.
 
 | perturbation | what fails (320 x 180 / 1280 x 720) |
@@ -260,6 +343,7 @@ Each perturbs the *plugin's* model through a hook the shipped plugin carries at 
 | each pick's weft swapped after the weave | `--distance`: ratio **1.120 / 1.039** — it fails, but by 4% at 1280 x 720: the structures still carry the tone |
 | shuttles and loom that forget on a resize | `--resize`: seed differs, 3 cold starts, no memory |
 | a cloth that takes the clip's alpha | `--alpha`: 28,800 / 460,800 pixels wrong at Mix 1 |
+| v0.1.0's loom (`kPerturbTies010`: no off-lattice charge, the first coprime step, kHoldShuttle 384) | `--ties`: 4.2x, 8.2x, 1.9x, 2.6x chance (figures and disc, Max Float 6 and 10); byte-identical to the v0.1.0 binary through `--pipe` on 240 frames of footage |
 
 The pipe's stepping test was also run against a harness that ramps every cue: frames 1,
 5 and 9 then differ, and the test fails.
@@ -276,6 +360,17 @@ CPU state. Reverted with `git checkout source/Shaders.cpp` and a `touch`; the tr
 clean before and after, and the rebuilt `--shuttle` passes.
 
 ---
+
+### The mutation, v0.1.1
+
+One character of the shipped C++, on a clean committed tree: `kOffLattice = 1` became
+`kOffLattice = 0` in `Loom.h` (v0.1.0's tie cost, with the new step and hold).
+Caught at both rasters by **`--ties`** (8.34x chance at 320 x 180, 8.25x at 1280 x 720), and by
+`demo/tools/check_shaders.py` (the constant no longer matches the page's). Correctly not
+caught by `--optimal` (exact for whatever costs it is given), `--coverage` (the solids' tie
+density went back to 612 of 3600, above the bound it asserts) or `--floats`. Reverted with
+`git checkout source/Loom.h` and a `touch`; the tree was clean before and after (942a316),
+and the rebuilt `--ties` passes.
 
 ## The browser demo
 
@@ -326,6 +421,20 @@ each pick, one weft colour a pick, output alpha 1.
   differ, by one level. The comparer fails when it should: jqtest at Max Float 9 against
   the page at 10 differs on 17–21% of pixels.
 
+**Re-measured for v0.1.1 (2026-09-25).** `demo/loom.js` carries the off-lattice charge
+and the satin counter by hand; the constants (kOffLattice, kHoldShuttle 768) by
+`sync_shaders.py`. The same scratch driver, with two black-ground scenarios added (160 x 90
+at the defaults, and Bright x4 at Max Float 12, both over two drifting figures): against
+the **x86_64** build 41 of 41 frames identical bit for bit (shuttles, wefts, lifts, cost,
+programme count) over 731,556 crossings; against **arm64** the same weft and lift on every
+crossing, 10 shuttle floats a last bit apart and the total cost a few units off on 35
+frames, as in v0.1.0. End to end, the page served locally from the worktree and driven headlessly (ANGLE on
+Metal, M4 Max), its input frames piped through `jqtest --pipe` (arm64): **0 pixels differ** on
+8 frames of the Synthetic scene and 5 of Colour bars at the defaults, 5 of the Geometry card
+at Max Float 12 with Bright x4, and 4 of the scene at Max Float 16 in Satin (both steps that
+v0.1.1 changed), 960x540. The comparer still fails when it should: jqtest with `--perturb
+256` (v0.1.0's loom) against the v0.1.1 page differs on 17–22% of pixels.
+
 **What differs, each said on the page:** Ends, Picks, Max Float and Shuttles are
 dropdowns (no integer control in the kit); no About block; `Perturb` 0 and no forced
 structure; the loom's memory is lost on a reload; a browser's GPU rounds the crossing
@@ -360,6 +469,9 @@ stay green. Verify by content:
 - **Picks 0 is Auto**: as many picks as make a crossing Thread Aspect times as tall as
   it is wide. With Picks set, Thread Aspect does nothing.
 - **Thread Aspect is 0.5–2 on a log scale**, default 1 (square crossings).
+- **The off-lattice charge (v0.1.1)** over a small offset or an adjacency penalty: see
+  "Ties over black lined up". kOffLattice 1, kHoldShuttle 768 and the satin counter are
+  chosen by measurement on the demo clips, like the other cost constants.
 - **Defaults**: 160 ends, Picks Auto, Max Float 10, a black warp (0.08, 0.07, 0.07),
   six shuttles from the clip, Auto, Thread Shading 1, Zoom at 1x, Mix 1. Chosen by weaving
   Resolume's bundled demo clips through `--pipe` (IntoTheGlow_02, Ethnik2, Metalive 01,
@@ -387,41 +499,50 @@ stay green. Verify by content:
 
 ### Verified by measurement, on an M4 Max running macOS 26.4 (2026-09-25)
 
-`tools/verify.sh` on this machine against a fresh universal Release build.
+`tools/verify.sh` on this machine against a fresh universal Release build; for v0.1.1,
+re-run in full the same evening.
 
 - **Optimal.** 960 woven picks (60 random cloths of 4–13 ends and a second frame of each
   that remembers the first, 2–8 shuttles, Max Float 2–6, all four modes) and 200
   arbitrary integer tables: every one equals the exhaustive search exactly, every table
-  feasible. The greedy weaver is worse on 49 of 480 woven picks.
+  feasible. The greedy weaver is worse on 54 of 480 woven picks (49 in v0.1.0).
 - **Floats.** 48 cloths (four modes x card, noise, black, white x Max Float 2, 4, 6), on
   the grid and read from the picture: longest float 6 against a limit of 6 at the
   largest, 0 infeasible picks.
 - **Coverage.** All eight non-solid structures exactly their ratio over 3,600
-  crossings: 720, 900, 1200, 1800, 1800, 2400, 2700, 2880. The solids tie 612 (0.17).
+  crossings: 720, 900, 1200, 1800, 1800, 2400, 2700, 2880. The solids tie 400 (1/9,
+  the satin minimum; 612 in v0.1.0).
+- **Ties** (v0.1.1). Over a black ground crossed by bright picks (two figures and a bar;
+  a disc; Max Float 6 and 10), a speck above a speck in the same end at 1, 2 or 3 picks is
+  at most 0.52 of chance at 1280 x 720 and 0.30 at 320 x 180; v0.1.0's loom 7.9–8.2x.
 - **Twill.** 2/2, 3/1, 2/1 at 45°; 1/3 at aspect 2, 63.43°; 1/2 at aspect 0.5, 26.57°;
   each peak 1.0000 at exactly ( -end width, +pick height ).
 - **Shuttle.** Card and noise, Clip x6, Clip x8, Bright x8, Heritage x3: 0 crossings off
   the grid's colour, 0 picks with two wefts, 0 off the shuttles.
-- **Distance.** RMS error ratio against the best single colour: 0.575 (shaded) and 0.532
-  (flat) at 1280 x 720; 0.537 at 320 x 180.
+- **Distance.** RMS error ratio against the best single colour: 0.579 (shaded) and 0.531
+  (flat) at 1280 x 720; 0.537 at 320 x 180 (v0.1.0: 0.575, 0.532, 0.537).
 - **Resize.** Shuttles bit-identical and the loom's memory kept, out, held and back.
 - **Alpha.** 0 pixels wrong at Mix 1, 0 and 0.5, at both rasters.
-- **Negative controls** all fail their check; **the mutation** is caught by five checks.
+- **Negative controls** all nine fail their check; **the mutations** are caught (the
+  shader's by five checks, v0.1.1's C++ one below).
 - **The software renderer** agrees at 320 x 180 on every check.
 - **No dead controls**, all 13, at 320 x 180 and 480 x 270.
 - **Every shader compiles** through `glslc`, and none uses a GLSL 4.10 reserved word.
 - **`--pipe`**: 2.5 frames in, 2 out; unknown cue exit 2; failed render exit 1 and one
   frame; `| head -c 1` exit 1; an option steps between cues.
 - **The bundle** is universal, exports `_plugMain`, carries `com.stoatworks.ffgl.jacquard`
-  and 0.1.0, ad-hoc signs; `oxbow` reports `SW Jacquard` / `JQ01` / `effect` and renders
+  and 0.1.1, ad-hoc signs; `oxbow` reports `SW Jacquard` / `JQ01` / `effect` and renders
   120 frames through `plugMain`.
 - **Render cost**, best of three runs of 30 frames after a warm-up, `glFinish` both
   sides, on a machine shared with other builds:
 
   | grid | 720p | 1080p | 4K | of which CPU |
   | --- | --- | --- | --- | --- |
-  | defaults, 160 x 90 | 2.21 ms | 2.88 ms | 3.21 ms | 1.4 ms |
-  | largest, 320 x 180 | 5.69 ms | 5.79 ms | 7.77 ms | 4.9 ms |
+  | defaults, 160 x 90 | 1.84 ms | 1.97 ms | 2.04 ms | 1.3 ms |
+  | largest, 320 x 180 | 5.54 ms | 5.72 ms | 6.72 ms | 4.7 ms |
+
+  (v0.1.1, 2026-09-25 evening; v0.1.0's run on a busier machine read 2.21–3.21 and
+  5.69–7.77 ms. The off-lattice charge is one multiply a crossing.)
 
   The CPU half is the shuttles' k-means and the loom's programme for every pick; fax's
   is about 10 ms.
@@ -434,9 +555,10 @@ stay green. Verify by content:
 - **The look on footage is judged by eye**, on the demo clips above through `--pipe`,
   and so is "reads as thread up close" (docs/close.png). `--distance` measures the far
   half of that claim on the card only.
-- **Temporal stability is measured, not checked**: see the trap, and the filming bullet below
-  for the release's numbers on eight moving clips.
-- **Windows, in Resolume Arena 7.27.1** (win-lab, Mesa llvmpipe, no GPU, 2026-09-25): On Windows it has: the DLL release.yml built from this source loads in Resolume Arena 7.27.1 on software rendering (win-lab, Mesa llvmpipe, no GPU), registers as `SW Jacquard` / `JQ01` / effect, all 19 host controls match what the plugin declares, it renders, Arena's log stays clean, and all 14 valued controls move the picture (35 to 66 levels against a noise floor of 0): 9 of the fleet Arena gate's 9 checks, one run. The gate's picture is a still, so it says nothing about how the cloth moves; software rendering says nothing about a GPU or about speed. MSVC compiled it first time.
+- **Temporal stability is measured, not checked**: see the trap, the filming bullet below
+  for v0.1.0's numbers on eight moving clips, and "Ties over black lined up" for v0.1.1's
+  against v0.1.0 on six.
+- **Windows, in Resolume Arena 7.27.1** (win-lab, Mesa llvmpipe, no GPU, 2026-09-25): On Windows it has: the v0.1.1 DLL release.yml built from this source loads in Resolume Arena 7.27.1 on software rendering (win-lab, Mesa llvmpipe, no GPU), registers as `SW Jacquard` / `JQ01` / effect, all 19 host controls match what the plugin declares, it renders, Arena's log stays clean, and all 14 valued controls move the picture (38 to 68 levels against a noise floor of 0): 9 of the fleet Arena gate's 9 checks, one run on 2026-09-25 (v0.1.0's DLL passed the same 9, with 35 to 66). The gate's picture is a still, so it says nothing about how the cloth moves; software rendering says nothing about a GPU or about speed. MSVC compiled it first time.
 - **The fixed swatches, the cost constants (kTie, kLattice, the kHold terms) and the
   shading constants** are chosen, not derived.
 - **No brocade mode, no presets, no OpenFX port.** There is a user guide
@@ -449,7 +571,7 @@ average is left, and a grey clip's rows all average alike. **Over a black ground
 bright pick the ties line up** into short vertical dashes with dark picks between, not a satin
 scatter; it is there on a single frame, so it is the per-pick weave, not the memory (a scratch
 build with the lift hold at 0 made the columns more regular, and doubled the frame-to-frame
-change). And **steadiness on moving footage**, measured through `--pipe` at 960×540 as the share
+change). **Fixed in v0.1.1** (the trap above); the video shows v0.1.0 and says so. And **steadiness on moving footage**, measured through `--pipe` at 960×540 as the share
 of pixels changing by more than 8/255 from one frame to the next: a held frame 0.00%; the dancers
 (Galactucity) 10.4% in the clip and 13.2% in the cloth; the skulls 76.9% and 28.3%; Metalive 18.6%
 and 13.6%; SpaceUniverse 1.9% and 1.5%; Cyberspace's thin bright lines 7.5% and 16.9%, with one
@@ -465,12 +587,10 @@ frame in ten re-weaving half the picture.
   would cost the exactness story nothing (it is outside the programme).
 - **A brocade mode**: a supplementary weft a pick, floating behind where unused. The
   natural answer to the halves problem, and the spec's own suggestion.
-- **Why do ties over black line up?** A bright pick crossing a black ground ties in the same
-  ends pick after pick (vertical dashes every Max Float + 1 ends, dark picks between), on a
-  single frame with no memory. Not the lift hold (kHoldLift 0 made it more regular). A guess, not
-  tested: the carry is clamped to the threads' range, so a black target never owes back a tie's
-  brightness and nothing pushes the next pick's tie off that end; the lattice discount (512) is
-  then all that moves it. Measure before changing the costs; the demo's JS port must follow.
+- ~~Why do ties over black line up?~~ Answered and fixed in v0.1.1: the carry, not the clamp
+  (see the trap). Still open from it: whether a tie's own speck should be owed in the carry,
+  which would push ties apart by error diffusion rather than by the lattice. Not done: it
+  changes every pick's colour decision, and the lattice already scatters them.
 - **Should temporal stability be a check?** A still-with-noise source through `--pipe`,
   asserting the cloth changes on no more crossings than the source does, would hold the
   memory terms to a number.
@@ -478,8 +598,8 @@ frame in ten re-weaving half the picture.
   compositions; it would also make floats and ties undefined at the edges of the holes.
 - **k-means in the encoding** rather than linear light would spend more shuttles on the
   darks, which most VJ footage is.
-- **Solid tie density**: the lattice discount could be raised until flat solids tie in
-  exact satin order; nothing measured says the current 0.17 looks worse.
+- ~~Solid tie density~~: since v0.1.1 flat solids tie in exact satin order, 1 in 9 at Max
+  Float 8 (the off-lattice charge did it, not a bigger discount).
 
 ---
 

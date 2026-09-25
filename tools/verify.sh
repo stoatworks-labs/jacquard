@@ -33,6 +33,7 @@
 #                                any single colour
 #                   --resize     the shuttles and the loom's memory survive
 #                   --alpha      the cloth is opaque; Mix blends all of RGBA
+#                   --ties       over a black ground the ties scatter (v0.1.1)
 #                   --negative   every one of those FAILS on a perturbed model
 #   software      the same checks at 320x180 on Apple's SOFTWARE renderer,
 #                 which is what GitHub's macOS runners have and which is not
@@ -157,7 +158,7 @@ else
 	printf '%s\n' "$out" | tail -5 | sed 's/^/      /'
 fi
 
-CHECKS="floats coverage twill shuttle distance resize alpha negative"
+CHECKS="floats coverage twill shuttle distance resize alpha ties negative"
 
 for size in 320x180 1280x720; do
 	step "checks at $size"
@@ -312,8 +313,8 @@ if [ "$(uname)" = "Darwin" ] && [ -d "$BUNDLE" ]; then
 		fail "CFBundleIdentifier is '$ident'"
 	fi
 	about=$(sed -n 's/.*versionFallback = "v\([^"]*\)".*/\1/p' source/StoatworksAbout.h)
-	if [ "$version" = "0.1.0" ] && [ "$about" = "0.1.0" ]; then
-		pass "version 0.1.0 in the plist and in StoatworksAbout.h"
+	if [ "$version" = "0.1.1" ] && [ "$about" = "0.1.1" ]; then
+		pass "version 0.1.1 in the plist and in StoatworksAbout.h"
 	else
 		fail "version: plist '$version', StoatworksAbout.h '$about'"
 	fi

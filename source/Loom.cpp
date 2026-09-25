@@ -67,6 +67,12 @@ void Weave( const float* means, const Settings& s, Cloth& out, const Cloth* prev
 	const bool unlimited = ( s.perturb & weave::kPerturbNoFloatLimit ) != 0 || s.maxFloat <= 0;
 	const int M          = unlimited ? 0 : s.maxFloat;
 	const bool greedy    = ( s.perturb & weave::kPerturbGreedy ) != 0;
+	//The negative control for `--ties`: v0.1.0's loom exactly -- the
+	//lattice's discount alone, v0.1.0's step (in LatticeStep) and its
+	//shuttle hold.
+	const bool ties010         = ( s.perturb & weave::kPerturbTies010 ) != 0;
+	const int64_t offLattice   = ties010 ? 0 : kOffLattice;
+	const int64_t holdShuttle  = ties010 ? 384 : kHoldShuttle;
 
 	out.ends  = n;
 	out.picks = s.picks;
@@ -164,7 +170,7 @@ void Weave( const float* means, const Settings& s, Cloth& out, const Cloth* prev
 			lanes[ ( static_cast< size_t >( c ) * 3 + 1 ) * kLanes + l ] = m.g;
 			lanes[ ( static_cast< size_t >( c ) * 3 + 2 ) * kLanes + l ] = m.b;
 		}
-	const int latticeStep = M > 0 ? weave::LatticeStep( M + 1 ) : 1;
+	const int latticeStep = M > 0 ? weave::LatticeStep( M + 1, s.perturb ) : 1;
 	std::vector< uint8_t > columnValue( static_cast< size_t >( n ), 0 );
 	std::vector< int > columnRun( static_cast< size_t >( n ), 0 );
 
@@ -237,9 +243,11 @@ void Weave( const float* means, const Settings& s, Cloth& out, const Cloth* prev
 						}
 				}
 				const int d       = pattern[ static_cast< size_t >( best ) * n + i ];
-				const int64_t tie = kTie + quantise( error2( te, d == 1 ? weftEncoded[ static_cast< size_t >( c ) ] : warpEncoded ) )
-				                    - ( lattice[ static_cast< size_t >( i ) ] ? kLattice : 0 );
-				const int64_t shuttleHold = remember && previous->weft[ static_cast< size_t >( j ) ] != c ? kHoldShuttle : 0;
+				//A tie: what it shows, and where. On the lattice it is discounted;
+				//off it, its speck is charged again (Loom.h: why).
+				const int64_t shown = quantise( error2( te, d == 1 ? weftEncoded[ static_cast< size_t >( c ) ] : warpEncoded ) );
+				const int64_t tie   = kTie + shown + ( lattice[ static_cast< size_t >( i ) ] ? -kLattice : offLattice * shown );
+				const int64_t shuttleHold = remember && previous->weft[ static_cast< size_t >( j ) ] != c ? holdShuttle : 0;
 				table.At( c, i, d )     = E + shuttleHold;
 				table.At( c, i, 1 - d ) = E + tie + shuttleHold;
 				if( remember )

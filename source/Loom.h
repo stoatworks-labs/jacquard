@@ -29,7 +29,8 @@
 	   sRGB encoding, x 65536. One that does not -- a tie -- costs that plus
 	   kTie plus the squared error of the thread it shows instead (a warp tie
 	   in a dark weft solid is a light speck, and costs what a light speck
-	   costs there), less kLattice on the tie lattice.
+	   costs there), less kLattice on the tie lattice -- and, OFF the
+	   lattice, that speck's error again, kOffLattice times over.
 	4. **The programme** (`Encoder.h`) chooses the weft colour and the
 	   pattern, exactly, with the warp runs of the picks above as forbidden
 	   values.
@@ -43,10 +44,26 @@
 	   mix. That alternation is the colour banding along rows a woven
 	   picture has.
 
-	The tie lattice term is an integer the programme optimises like any other;
-	in a flat solid it makes the least-cost ties land in satin order, one per
-	Max Float + 1 in every row and column, so they scatter instead of lining
-	up.
+	The tie lattice terms are integers the programme optimises like any other;
+	they make the least-cost ties land in satin order, one per Max Float + 1
+	in every row and column, so they scatter instead of lining up.
+
+	**Why the lattice needs the second term** (v0.1.1). The carry varies from
+	end to end by a few hundredths on the encoding even over a flat black
+	ground (measured: 0.025 rms, Galactucity), and it runs down the ends, so
+	it is much the same pick after pick. A bright tie over black costs its
+	speck's squared error, which follows the carry: about 2,600 units rms
+	across a pick, five times kLattice. So in v0.1.0 the programme put each
+	bright pick's ties wherever the carry made a speck cheapest, which was
+	the same ends every time, and a black ground crossed by bright picks
+	showed short vertical dashes. Nothing pushes back: the carry is the
+	target less the STRUCTURE's mixture, so a tie's own speck is never owed.
+	A bigger constant cannot fix it without letting a tie pay (kLattice must
+	stay below kTie). Charging an off-lattice tie its speck twice scales with
+	exactly the thing that varies: the carry would have to halve a speck's
+	error to move it off the lattice, which only the picture itself does.
+	On-lattice ties cost what they did; a tie that shows nearly the target's
+	own colour (an invisible tie) is almost as free to move as before.
 */
 namespace jacquard::loom
 {
@@ -57,6 +74,10 @@ constexpr double kCostScale = 65536.0;
 constexpr int64_t kTie = 1024;
 /// The lattice's discount on a tie. Less than kTie, so a tie never pays.
 constexpr int64_t kLattice = 512;
+/// Off the lattice a tie pays for what it shows this many times again: a
+/// speck out of satin order costs twice its error (see above). Integer, so
+/// the table stays integer and the programme exact.
+constexpr int64_t kOffLattice = 1;
 /// The share of a pick's error carried to the next: all of it, as error
 /// diffusion does, so a colour a region is owed keeps accumulating until a
 /// pick pays it.
@@ -75,8 +96,14 @@ constexpr float kCarryLimit = 0.5f;
 /// and a crossing keeps last frame's structure while that structure's error
 /// is within kHoldStructure of the best one's. Integers in the table like
 /// every other cost, so the programme is still exact for what it is given.
+///
+/// kHoldShuttle was 384 in v0.1.0. The off-lattice charge makes a pick's
+/// total depend more on where the picture's solids fall against the fixed
+/// lattice, and on the skulls clip it doubled the picks changing shuttle
+/// from one frame to the next (7.1 to 13.4 of 90); at 768 it is 6.3, and no
+/// clip measured changes more from frame to frame than it did in v0.1.0.
 constexpr int64_t kHoldLift      = 2048;
-constexpr int64_t kHoldShuttle   = 384;
+constexpr int64_t kHoldShuttle   = 768;
 constexpr int64_t kHoldStructure = 256;
 
 struct Settings

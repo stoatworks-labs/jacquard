@@ -38,7 +38,9 @@
 	float limit exists: a solid is one unbroken float, and the encoder must tie
 	it down (`Encoder.h`). The tie lattice is where it prefers to: a satin
 	order of period Max Float + 1, one tie per period in every row and every
-	column, which is the minimum density and has no diagonal.
+	column, which is the minimum density and has no diagonal. Since v0.1.1 a
+	tie off the lattice is charged its speck twice (`Loom.h`), which is what
+	makes the preference hold over a black ground.
 */
 namespace jacquard::weave
 {
@@ -94,15 +96,18 @@ enum Perturb
 	kPerturbScramble    = 1 << 5,///< each pick's weft replaced by a hashed palette entry
 	kPerturbColdResize  = 1 << 6,///< the shuttles and the loom forget themselves when the raster changes
 	kPerturbAlphaThrough = 1 << 7,///< the cloth takes the clip's alpha instead of being opaque
+	kPerturbTies010     = 1 << 8,///< v0.1.0's loom: the lattice's discount alone, its first coprime step, its shuttle hold
 };
 
 /// Warp on top at end i, pick j, for this structure. Phase-aligned: i and j
 /// are absolute grid positions.
 bool WarpUp( int structure, int i, int j, int perturb = 0 );
 
-/// The satin step of the tie lattice for period n: the smallest s in
-/// [2, n - 2] coprime with n, else 1.
-int LatticeStep( int period );
+/// The satin step of the tie lattice for period n: of the s in [2, n - 2]
+/// coprime with n, the one whose lattice has the longest shortest vector
+/// (ties farthest apart), the smallest on a draw; else 1. With
+/// kPerturbTies010, v0.1.0's rule: the smallest such s.
+int LatticeStep( int period, int perturb = 0 );
 
 /// On the tie lattice for a float limit M: ( i + s j ) mod ( M + 1 ) == 0.
 bool OnTieLattice( int i, int j, int maxFloat );

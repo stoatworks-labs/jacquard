@@ -14,7 +14,7 @@ through the solids, and a picture from across the room that is thread up close.
 rather than captured from Resolume: 160 ends, square crossings, floats of at most ten, a black
 warp and six shuttles dyed from the picture.*
 
-> **Before you rely on this:** released at **v0.1.0**, and honestly early. The weaving is
+> **Before you rely on this:** released at **v0.1.1**, and honestly early. The weaving is
 > measured rather than asserted, by a harness that drives the real plugin class headlessly, at
 > two rasters and on a software renderer: every pick the loom weaves costs exactly what an
 > exhaustive search over every shuttle and every lift pattern finds, on 960 woven picks and 200
@@ -22,13 +22,13 @@ warp and six shuttles dyed from the picture.*
 > and read back from the picture; each of eight weave structures shows exactly its stated weft
 > ratio over 3,600 crossings; a twill's diagonal lands at exactly one end across per pick down;
 > every pick shows one weft colour and it is a shuttle's; from a distance the cloth is nearer
-> the picture than any single colour; the shuttles and the loom's memory survive a resize; and
-> the cloth is opaque over a clip with alpha. Eight deliberately broken models are each shown to
-> fail their check, and all 13 controls are shown to change the picture. **Each pick is optimal
+> the picture than any single colour; the shuttles and the loom's memory survive a resize; the
+> cloth is opaque over a clip with alpha; and over a black ground the ties scatter rather than
+> line up down the ends. Nine deliberately broken models are each shown to fail their check, and all 13 controls are shown to change the picture. **Each pick is optimal
 > given the picks above it; the cloth as a whole is not** (see How it works). It has **never been
 > loaded into Resolume on macOS** — the one host it has run in there is the fleet's own test
 > host, `oxbow`, for 120 frames.
-> On Windows it has: the DLL release.yml built from this source loads in Resolume Arena 7.27.1 on software rendering (win-lab, Mesa llvmpipe, no GPU), registers as `SW Jacquard` / `JQ01` / effect, all 19 host controls match what the plugin declares, it renders, Arena's log stays clean, and all 14 valued controls move the picture (35 to 66 levels against a noise floor of 0): 9 of the fleet Arena gate's 9 checks, one run. The gate's picture is a still, so it says nothing about how the cloth moves; software rendering says nothing about a GPU or about speed. MSVC compiled it first time.
+> On Windows it has: the v0.1.1 DLL release.yml built from this source loads in Resolume Arena 7.27.1 on software rendering (win-lab, Mesa llvmpipe, no GPU), registers as `SW Jacquard` / `JQ01` / effect, all 19 host controls match what the plugin declares, it renders, Arena's log stays clean, and all 14 valued controls move the picture (38 to 68 levels against a noise floor of 0): 9 of the fleet Arena gate's 9 checks, one run on 2026-09-25 (v0.1.0's DLL passed the same 9, with 35 to 66). The gate's picture is a still, so it says nothing about how the cloth moves; software rendering says nothing about a GPU or about speed. MSVC compiled it first time.
 > Try it on a spare layer before you put it in a show.
 >
 > This codebase was created with AI assistance, directed and reviewed by a human author.
@@ -98,8 +98,8 @@ Then:
 
 **Black grounds stay black** because the warp is near-black: where the clip is black the warp
 shows. Every float still has to be tied, so a black ground crossed by a bright pick carries that
-pick's colour as a line of specks, and on footage they often line up into short vertical dashes
-(see Known limits).
+pick's colour as a scatter of specks, in satin order. (Before v0.1.1 they often lined up into
+short vertical dashes; see "What changed in v0.1.1" under How it works.)
 
 Every slider is declared to the host as 0 to 1. The value each position stands for is given with
 each control below. Ends, Picks, Max Float and Shuttles are whole numbers, and Resolume shows them
@@ -203,8 +203,8 @@ Three stages a frame:
    programme finds the shuttle and the lift pattern of least total cost under both float limits,
    exactly. The costs are integers: a crossing that follows its structure costs that structure's
    error, a tie costs a fixed amount plus the error of the thread it shows, less a discount on a
-   satin-ordered lattice of preferred tie positions. The error left over is carried 1/4, 1/2, 1/4
-   to the next pick.
+   satin-ordered lattice of preferred tie positions, and off that lattice the error of the thread
+   it shows is charged twice. The error left over is carried 1/4, 1/2, 1/4 to the next pick.
 3. **Render** (GPU). Per output pixel, through Zoom: the crossing, the thread on top, its colour,
    and Thread Shading's lit cylinder.
 
@@ -218,12 +218,24 @@ crossing's change near the top moves shuttles and ties all the way down. So each
 also charge a little for a lift, a shuttle or a structure that differs from the last frame's, and
 a still clip weaves exactly the same cloth frame after frame (0.00% of pixels change on a held
 frame). On moving footage the cloth changes about as much as the clip does. Measured through
-the harness at 960 × 540, as the share of pixels changing by more than 8/255 from one frame to the
-next: the dancers (Galactucity) 10.4% in the clip and 13.2% in the cloth; the skulls 76.9% and
-28.3%; the tumbling sphere (Metalive) 18.6% and 13.6%; the slow nebula (SpaceUniverse) 1.9% and
-1.5%. On the thin bright lines of Cyberspace the cloth moves more than the clip (7.5% against
-16.9%), and one frame in ten re-weaves half the picture. There is no single steadiness figure, and
-it is not one of the harness's checks.
+the harness at 960 × 540 over four seconds of each clip, as the share of pixels changing by more
+than 8/255 from one frame to the next (v0.1.1; v0.1.0 in brackets): the dancers (Galactucity)
+10.4% in the clip and 11.3% in the cloth (13.2%); the skulls 76.5% and 27.4% (28.3%); the tumbling
+sphere (Metalive) 18.5% and 12.0% (13.6%); the slow nebula (SpaceUniverse) 1.9% and 1.5% (1.5%).
+On the thin bright lines of Cyberspace the cloth moves more than the clip (8.1% against 16.1%;
+16.9%). There is no single steadiness figure, and it is not one of the harness's checks.
+
+**What changed in v0.1.1: ties over black scatter.** In v0.1.0, where a bright pick crossed a
+black ground, the ties sat in the same ends pick after pick and read as short vertical dashes.
+The error the loom carries down the cloth varies a little from end to end even over flat black,
+and it runs down the ends, so a bright tie cost least in the same few ends every pick — by five
+times the loom's small preference for satin order. v0.1.1 charges a tie out of satin order the
+error of its speck twice, which only the picture itself can outweigh; takes the satin's step as a
+weaver takes a satin counter, so the ties lie as far apart as the float limit allows; and holds
+each pick's shuttle from frame to frame twice as firmly, so busy footage is no less steady than
+before. On the dancers, a bright speck over black had another speck two picks above it in the same
+end 26% of the time in v0.1.0, and 0.1% in v0.1.1. A flat solid now ties exactly one crossing in
+Max Float + 1. The error seen from a distance moved by between −4% and +2% on the demo clips.
 
 ---
 
@@ -234,8 +246,8 @@ shared with other work:
 
 | | 1280 × 720 | 1920 × 1080 | 3840 × 2160 | of which the CPU loom |
 | --- | --- | --- | --- | --- |
-| defaults, 160 × 90 crossings | 2.0 ms (12%) | 2.0 ms (12%) | 2.1 ms (13%) | 1.3 ms |
-| largest, 320 × 180 crossings | 5.6 ms (34%) | 5.9 ms (35%) | 6.9 ms (42%) | 4.8 ms |
+| defaults, 160 × 90 crossings | 1.8 ms (11%) | 2.0 ms (12%) | 2.0 ms (12%) | 1.3 ms |
+| largest, 320 × 180 crossings | 5.5 ms (33%) | 5.7 ms (34%) | 6.7 ms (40%) | 4.7 ms |
 
 (percentages of a 60 fps frame).
 
@@ -259,9 +271,10 @@ more than across it.
 picture wants two hues in the same pick, the loom alternates them pick by pick. From a distance
 they mix.
 
-**A black ground has specks or vertical dashes in it.** Those are ties: every float must be tied
-within Max Float crossings, and a pick's ties are its own shuttle's colour. Raise Max Float for
-fewer ties.
+**A black ground has specks in it.** Those are ties: every float must be tied within Max Float
+crossings, and a pick's ties are its own shuttle's colour. They fall in satin order, one in
+Max Float + 1 crossings along a pick. Raise Max Float for fewer ties. (If they line up into
+vertical dashes, you have v0.1.0: update.)
 
 **The threads look like flat squares.** Thread Shading fades out below about 4 pixels a crossing.
 Lower Ends, or raise Zoom.
@@ -291,17 +304,13 @@ buffer the plugin could not allocate.
   two-dimensional optimum, and two saturated hues side by side weave as an uneven alternation.
 - **One weft a pick.** There is no brocade or lampas mode (a supplementary weft that floats
   behind where it is not used), which is how a real jacquard gets two colours into one pick.
-- **Ties over black line up.** Over a black ground crossed by a bright pick, the ties the float
-  limit forces often fall in the same ends pick after pick, so they read as a lattice of short
-  vertical dashes with dark picks between, rather than a satin scatter. It is there on a single
-  frame, so it comes from the per-pick weave, not from the frame memory; on the moving demo clips
-  it shows on most black grounds.
-- **Least cost is not fewest ties.** A flat solid ties about 0.17 of its crossings at Max Float
-  8, more than the one in nine the limit alone needs, because the carried error varies from
-  crossing to crossing.
+- **Satin order, not fewest ties.** Since v0.1.1 the ties keep to a satin lattice, so where a
+  bright pick crosses a small patch of black the loom may spend one tie more than the fewest the
+  float limit needs, rather than let the ties line up. A tie's own speck is still not fed back into
+  the error carried down the cloth.
 - **Steadiness is measured, not guaranteed**, and not a harness check; see How it works.
 - **The cost constants and the shading are chosen, not derived**: the tie cost, the lattice
-  discount, the memory terms, and the thread's light and sheen. The fixed dye sets are picked by
+  discount and the off-lattice charge, the memory terms, and the thread's light and sheen. The fixed dye sets are picked by
   eye.
 - **The look is judged by eye**, on Resolume's bundled demo clips through the harness. The
   harness proves the constraints, the structures and that each control moves the picture; nothing
@@ -315,8 +324,8 @@ buffer the plugin could not allocate.
 - **There is a browser demo** at [jacquard-demo.stoatworks-labs.com](https://jacquard-demo.stoatworks-labs.com/).
   It is a port to a web page, not the plugin: the shaders are the plugin's own, run in WebGL2,
   but the CPU half — the k-means that dyes the shuttles and the loom's row programme — is a hand
-  port to JavaScript that only a reader checks. It was compared with the C++ once and wove the
-  same cloth; the page lists what it does not reproduce.
+  port to JavaScript that only a reader checks. It was compared with the C++ at v0.1.0 and again
+  at v0.1.1 and wove the same cloth; the page lists what it does not reproduce.
 
 ---
 

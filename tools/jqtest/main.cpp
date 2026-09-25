@@ -258,6 +258,45 @@ Image buildNoise( int width, int height, uint32_t seed )
 	return image;
 }
 
+/// A black ground crossed by bright picks, the look that filming v0.1.0
+/// found wanting: two orange figures and a thin white bar on pure black
+/// (`figures`), or one pale gold disc (`disc`). Every pick through a figure
+/// is a bright pick that must be tied across the black on either side.
+Image buildGround( int width, int height, bool disc )
+{
+	Image image = buildFlat( width, height, 0, 0, 0 );
+	struct Ellipse
+	{
+		float cx, cy, rx, ry;
+		unsigned char r, g, b;
+	};
+	const float aspect = static_cast< float >( width ) / static_cast< float >( height );
+	const Ellipse figures[] = { { 0.30f, 0.55f, 0.06f, 0.35f, 242, 140, 38 }, { 0.68f, 0.45f, 0.05f, 0.30f, 242, 140, 38 } };
+	const Ellipse round[]   = { { 0.5f, 0.5f, 0.3f / aspect, 0.3f, 230, 204, 77 } };
+	const Ellipse* shapes   = disc ? round : figures;
+	const int count         = disc ? 1 : 2;
+	for( int y = 0; y < height; ++y )
+		for( int x = 0; x < width; ++x )
+		{
+			const float u    = ( static_cast< float >( x ) + 0.5f ) / static_cast< float >( width );
+			const float v    = ( static_cast< float >( y ) + 0.5f ) / static_cast< float >( height );
+			unsigned char* p = image.data() + ( static_cast< size_t >( y ) * width + x ) * 4;
+			for( int k = 0; k < count; ++k )
+			{
+				const float dx = ( u - shapes[ k ].cx ) / shapes[ k ].rx, dy = ( v - shapes[ k ].cy ) / shapes[ k ].ry;
+				if( dx * dx + dy * dy < 1.0f )
+				{
+					p[ 0 ] = shapes[ k ].r;
+					p[ 1 ] = shapes[ k ].g;
+					p[ 2 ] = shapes[ k ].b;
+				}
+			}
+			if( !disc && u > 0.86f && u < 0.875f )
+				p[ 0 ] = p[ 1 ] = p[ 2 ] = 255;
+		}
+	return image;
+}
+
 //---------------------------------------------------------------------------
 // GL plumbing.
 //---------------------------------------------------------------------------
@@ -1463,6 +1502,109 @@ int runAlpha( int width, int height, int perturb = 0, bool quiet = false )
 }
 
 //---------------------------------------------------------------------------
+// --ties
+//
+// Over a black ground crossed by bright picks, the ties scatter: read from
+// the PICTURE, with Thread Shading 0 (a crossing is exactly its top thread).
+// A crossing is over the black ground when every source pixel whose centre
+// falls in it is black; it is a SPECK when it shows neither the warp (within
+// one 8-bit step) nor anything darker than the warp -- a bright weft tied
+// through a black warp float. Over the black crossings, p is the share that
+// are specks. For lags d = 1, 2, 3 picks, the share of specks whose end also
+// shows a speck d picks above (both over black) is the vertical alignment at
+// that lag; lag 2 is a bright pick through one dark pick, the dashes filming
+// found. The claim: at no lag is it above p, which is what ties scattered
+// with no vertical order at all would give. The tolerance is chance itself,
+// not a fitted number. A satin puts no two ties in one end within Max Float
+// picks, so the fix sits far below it, and v0.1.0 far above (below).
+//
+// Two grounds (two figures and a bar; one disc) x Max Float 6 and 10 (the
+// default), otherwise the baseline. At least 100 specks, or there was nothing
+// to measure.
+//
+// Negative control: v0.1.0's tie cost (the lattice's discount alone), where
+// the carry places the ties and they line up.
+//---------------------------------------------------------------------------
+int runTies( int width, int height, int perturb = 0, bool quiet = false )
+{
+	int failures = 0;
+	double worstLift = 0.0;
+	for( int disc = 0; disc < 2; ++disc )
+	{
+		const Image ground = buildGround( width, height, disc != 0 );
+		for( int M : { 6, 10 } )
+		{
+			Still still;
+			if( !renderStill( width, height, { { "Max Float", static_cast< float >( M ) } }, ground, perturb, still ) )
+				return failures + 1;
+			const int E = still.cloth.ends, P = still.cloth.picks;
+			//Which crossings are over the black ground: every pixel in them black.
+			std::vector< uint8_t > black( static_cast< size_t >( E ) * P, 1 );
+			for( int y = 0; y < height; ++y )
+				for( int x = 0; x < width; ++x )
+				{
+					const unsigned char* q = pixelAt( ground, width, x, y );
+					if( q[ 0 ] != 0 || q[ 1 ] != 0 || q[ 2 ] != 0 )
+					{
+						const int i = std::min( E - 1, static_cast< int >( ( x + 0.5 ) * E / width ) );
+						const int j = std::min( P - 1, static_cast< int >( ( y + 0.5 ) * P / height ) );
+						black[ static_cast< size_t >( j ) * E + i ] = 0;
+					}
+				}
+			int warp[ 3 ];
+			expectedBytes( still.warp, warp );
+			const double warpLuma = 0.2126 * warp[ 0 ] + 0.7152 * warp[ 1 ] + 0.0722 * warp[ 2 ];
+			std::vector< uint8_t > speck( black.size(), 0 );
+			long blacks = 0, specks = 0;
+			for( int j = 0; j < P; ++j )
+				for( int i = 0; i < E; ++i )
+				{
+					const size_t k = static_cast< size_t >( j ) * E + i;
+					if( !black[ k ] )
+						continue;
+					++blacks;
+					const unsigned char* q = pixelAt( still.picture, width, centrePixel( i, E, width ), centrePixel( j, P, height ) );
+					const double luma      = 0.2126 * q[ 0 ] + 0.7152 * q[ 1 ] + 0.0722 * q[ 2 ];
+					speck[ k ]             = !within1( q, warp ) && luma > warpLuma ? 1 : 0;
+					specks += speck[ k ];
+				}
+			const double p = blacks > 0 ? static_cast< double >( specks ) / static_cast< double >( blacks ) : 0.0;
+			double lift[ 3 ] = { 0, 0, 0 };
+			bool ok          = specks >= 100;
+			for( int d = 1; d <= 3; ++d )
+			{
+				long below = 0, aligned = 0;
+				for( int j = d; j < P; ++j )
+					for( int i = 0; i < E; ++i )
+					{
+						const size_t k = static_cast< size_t >( j ) * E + i, above = static_cast< size_t >( j - d ) * E + i;
+						if( speck[ k ] && black[ above ] )
+						{
+							++below;
+							aligned += speck[ above ];
+						}
+					}
+				const double share = below > 0 ? static_cast< double >( aligned ) / static_cast< double >( below ) : 0.0;
+				lift[ d - 1 ]      = p > 0.0 ? share / p : 0.0;
+				ok                 = ok && share <= p;
+				worstLift          = std::max( worstLift, lift[ d - 1 ] );
+			}
+			if( !ok )
+				++failures;
+			if( !quiet )
+				std::printf( "ties %-7s Max Float %2d: %ld black crossings, %ld specks (p %.4f); a speck above a speck, over chance, at 1 / 2 / 3 picks: "
+				             "%.2f / %.2f / %.2f  %s\n",
+				             disc ? "disc" : "figures", M, blacks, specks, p, lift[ 0 ], lift[ 1 ], lift[ 2 ], verdict( ok ) );
+		}
+	}
+	if( !quiet )
+		std::printf( "%s (worst %.2f of chance)\n",
+		             failures == 0 ? "ties: over a black ground the ties are no more lined up down the ends than chance" : "ties: FAILURES -- the ties line up",
+		             worstLift );
+	return failures;
+}
+
+//---------------------------------------------------------------------------
 // --negative
 //
 // A check that cannot fail is not a check. Each of these perturbs the MODEL
@@ -1485,6 +1627,7 @@ int runNegative( int width, int height )
 		{ "distance with each pick's weft swapped          ", runDistance( width, height, weave::kPerturbScramble, true ) },
 		{ "resize with a loom that forgets on a resize     ", runResize( width, height, weave::kPerturbColdResize, true ) },
 		{ "alpha with a cloth that takes the clip's alpha  ", runAlpha( width, height, weave::kPerturbAlphaThrough, true ) },
+		{ "ties with v0.1.0's ties (discount, first step)  ", runTies( width, height, weave::kPerturbTies010, true ) },
 	};
 	int failures = 0;
 	for( const Control& c : controls )
@@ -1743,7 +1886,8 @@ void usage()
 		"  --out PATH          render the test card through the plugin (default /tmp/jacquard.png)\n"
 		"  --size WxH          raster (default 1280x720)\n"
 		"  --frames N          frames to render before reading back (default 4)\n"
-		"  --source S          card (default), noise, grey, halves (red | blue)\n"
+		"  --source S          card (default), noise, grey, halves (red | blue),\n"
+		"                      figures, disc (bright shapes on black: --ties' grounds)\n"
 		"  --set \"Name=V\"      set a parameter by its display name. Repeatable.\n"
 		"  --list              print every parameter, its kind, default and range, then exit\n"
 		"  --names             every name 16 characters or fewer, and unique\n"
@@ -1755,6 +1899,7 @@ void usage()
 		"  --distance          from a distance the cloth is the picture\n"
 		"  --resize            the shuttles and the loom's memory survive a change of raster\n"
 		"  --alpha             the cloth is opaque; Mix blends the whole RGBA\n"
+		"  --ties              over a black ground the ties scatter, not line up down the ends\n"
 		"  --negative          every check above can fail\n"
 		"  --perturb BITS      run the checks against a perturbed model (Weave.h), verbosely\n"
 		"  --bench             time ProcessOpenGL at 720p, 1080p and 4K, default and largest grid\n"
@@ -1831,7 +1976,7 @@ int main( int argc, char** argv )
 		else if( argument == "--pipe" )
 			wantPipe = true;
 		else if( argument == "--optimal" || argument == "--floats" || argument == "--coverage" || argument == "--twill"
-		         || argument == "--shuttle" || argument == "--distance" || argument == "--resize" || argument == "--alpha" || argument == "--negative"
+		         || argument == "--shuttle" || argument == "--distance" || argument == "--resize" || argument == "--alpha" || argument == "--ties" || argument == "--negative"
 		         || argument == "--names" )
 			checks.push_back( argument );
 		else
@@ -1910,6 +2055,8 @@ int main( int argc, char** argv )
 				result = runResize( width, height, perturb );
 			else if( check == "--alpha" )
 				result = runAlpha( width, height, perturb );
+			else if( check == "--ties" )
+				result = runTies( width, height, perturb );
 			else if( check == "--negative" )
 				result = runNegative( width, height );
 			failures += result;
@@ -2027,6 +2174,8 @@ int main( int argc, char** argv )
 		Image pixels;
 		if( sourceName == "noise" )
 			pixels = buildNoise( width, height, 17u );
+		else if( sourceName == "figures" || sourceName == "disc" )
+			pixels = buildGround( width, height, sourceName == "disc" );
 		else if( sourceName == "grey" )
 			pixels = buildFlat( width, height, 128, 128, 128 );
 		else if( sourceName == "halves" )
