@@ -3,9 +3,8 @@
 Jacquard is built on other people's work. This file lists what that work is, who did
 it, and what it is doing here.
 
-PROVISIONAL: a hand copy in the shape `stoatworks-backend/scripts/sync-attributions.py`
-generates. Jacquard is not yet registered in the backend's master lists; once it is, the
-sync overwrites this file.
+It is generated — the master lists live in the `stoatworks-backend` repo and are
+pushed out by `scripts/sync-attributions.py`. Edit it there, not here.
 
 ## Code we derived from other people's work
 
@@ -33,7 +32,7 @@ Options, booleans, integers and events stepping between --pipe cues instead of r
 Licence: MIT  
 Copyright: Stoatworks Labs
 
-PassBuffer is tinsel's, with the colour-texture leak in the SDK's FFGLFBO::Release fixed.
+PassBuffer is tinsel's, with the colour-texture leak in the SDK's FFGLFBO::Release fixed; tools/sweep.py and the fleet's trap list are tinsel's too.
 
 ## Third-party code this project uses
 
@@ -45,7 +44,7 @@ Libraries, SDKs and frameworks the project is built on or bundles.
 Licence: BSD-3-Clause  
 Copyright: FreeFrame
 
-Vendored as a git submodule at external/ffgl, pinned to b1afaf9 like the rest of the fleet.
+Vendored as a git submodule at external/ffgl (third_party/ffgl in oxbow).
 
 The plugin ABI itself. An FFGL effect or source is defined by this SDK's headers — there is no other way to be loadable by Resolume Arena and Avenue.
 
@@ -55,9 +54,19 @@ The plugin ABI itself. An FFGL effect or source is defined by this SDK's headers
 Licence: BSD-3-Clause (with Mesa 3-D and Khronos components)  
 Copyright: Milan Ikits, Marcelo E. Magallon and Lev Povalahev
 
-Arrives inside the FFGL submodule at external/ffgl/deps/glew-2.1.0, and through vcpkg on Windows.
+Arrives inside the FFGL submodule at external/ffgl/deps/glew-2.1.0. Not fetched separately.
 
 Resolves OpenGL entry points on Windows, where the system headers stop at OpenGL 1.1.
+
+### libpng
+
+<http://www.libpng.org/pub/png/libpng.html>  
+Licence: PNG Reference Library License (libpng)  
+Copyright: the PNG Reference Library authors
+
+Arrives inside the FFGL submodule, under the SDK's CustomThumbnail sample.
+
+Part of the upstream SDK tree rather than something these plugins call directly — listed because it is present in the checkout.
 
 ## Inspirations
 
@@ -65,15 +74,15 @@ What this set out to be. No code, assets or binaries from any of these were used
 
 ### The jacquard loom, and the people who weave pictures on it
 
-Joseph-Marie Jacquard's head (1804) lifts every warp end on its own, which is what made woven pictures possible at all. The vocabulary here — ends and picks, floats and ties, plain, twill and satin, a weft colour a pick from the shuttles loaded — is the weaver's, from general textile knowledge. No woven design, draft or pattern was copied.
+Joseph-Marie Jacquard's head (1804) lifts every warp end on its own, which is what made woven pictures possible at all. The vocabulary here (ends and picks, floats and ties, plain, twill and satin, a weft colour a pick from the shuttles loaded) is the weaver's, from general textile knowledge. No woven design, draft or pattern was copied.
 
 ## Standards and published specifications
 
 What the implementation is measured against.
 
-- **IEC 61966-2-1 (sRGB)** — The transfer function both ways: cell means are taken in linear light, and costs are measured on the encoding.
-- **ITU-R BT.709** — The luma coefficients 0.2126, 0.7152, 0.0722 that order the shuttles on a cold start.
-- **Melissa E. O'Neill, "PCG: A Family of Simple Fast Space-Efficient Statistically Good Algorithms for Random Number Generation" (Harvey Mudd College, 2014)** — The pcg_hash output mix behind the harness's random pictures and the scramble perturbation, written out rather than copied from anyone's source.
+- **IEC 61966-2-1 (sRGB)** — the transfer function both ways: cell means are taken in linear light, and costs are measured on the encoding.
+- **ITU-R BT.709** — the luma coefficients 0.2126, 0.7152, 0.0722 that order the shuttles on a cold start.
+- **Melissa E. O'Neill, "PCG: A Family of Simple Fast Space-Efficient Statistically Good Algorithms for Random Number Generation" (Harvey Mudd College, 2014)** — the pcg_hash output mix behind the harness's random pictures and the scramble perturbation, written out rather than copied from anyone's source.
 
 ## Getting this wrong
 
