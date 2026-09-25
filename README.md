@@ -124,6 +124,23 @@ cloth's steadiness on video was measured once, by hand: on a near-still clip it 
 about 1% of pixels a frame against the source's 0.6%. No user guide, no presets, no browser
 demo, no OpenFX port.
 
+## Browser demo
+
+[jacquard-demo.stoatworks-labs.com](https://jacquard-demo.stoatworks-labs.com/)
+runs the plugin's own cells and render shaders in WebGL2, spliced in from
+`source/Shaders.cpp` by `demo/tools/sync_shaders.py` and checked character for
+character by `demo/tools/check_shaders.py` from `tools/verify.sh`. Its CPU half — the
+k-means that dyes the shuttles and the loom with its exact row programme — is a
+**hand port to JavaScript** (`demo/loom.js`), and nothing checks a port but a reader.
+It was compared with the C++ once: the same cloth on every crossing of 31 frames of
+fixed means, and against `jqtest --pipe` on the page's own input frames the same
+picture to within one 8-bit level, most frames on every pixel (see AGENTS.md). The
+same limits hold there as here: each pick is exact given the picks above it and the
+cloth is greedy between picks, the float limit is enforced inside each pick, one weft
+colour a pick, and the output alpha is 1. Ends, Picks, Max Float and Shuttles are
+dropdowns (the kit has no integer control). It is served from `demo/` by this repo's
+own Worker and redeploys on every push to main.
+
 ## Build
 
 Needs CMake 3.15+, a C++17 compiler, and the FFGL SDK submodule.

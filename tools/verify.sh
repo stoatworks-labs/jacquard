@@ -14,6 +14,11 @@
 #                 before a host has to find out. The text compiled here is
 #                 what `jqtest --dump-shaders` writes: the exact strings the
 #                 plugin hands the driver.
+#   demo          the browser demo's copy of every shader, and of the loom's
+#                 constants, ranges, swatches and option names, is still the
+#                 plugin's, character for character (demo/tools/check_shaders.py).
+#                 Says nothing about the page's hand PORT of the CPU half
+#                 (demo/loom.js); only a reader checks that.
 #   names         every parameter name 16 characters or fewer, and unique.
 #   optimal       every pick the loom weaves costs exactly what an exhaustive
 #                 search over colour and pattern finds. No GL.
@@ -114,6 +119,25 @@ elif [ "$bad" -eq 0 ]; then
 	else pass "no reserved word used as a name (glslc not installed: brew install shaderc)"; fi
 else
 	fail "$bad shader problem(s)"
+fi
+
+#---------------------------------------------------------------------------
+# The browser demo's copy of every shader, and of the constants, ranges,
+# swatches and option names its loom port reads, is the plugin's, character
+# for character. A drifted comment counts. A change here means
+# `python3 demo/tools/sync_shaders.py`, never a hand edit of demo/. It says
+# nothing about the page's PORT of the CPU half; only a reader checks that.
+#---------------------------------------------------------------------------
+step "demo shaders"
+if [ -f demo/tools/check_shaders.py ]; then
+	if out=$(python3 demo/tools/check_shaders.py 2>&1); then
+		pass "$( printf '%s\n' "$out" | tail -1 )"
+	else
+		fail "the demo's shaders or constants have drifted from source/ -- run: python3 demo/tools/sync_shaders.py"
+		printf '%s\n' "$out" | tail -12
+	fi
+else
+	printf '   skipped: no demo/\n'
 fi
 
 step "names"

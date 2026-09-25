@@ -278,6 +278,68 @@ clean before and after, and the rebuilt `--shuttle` passes.
 
 ---
 
+## The browser demo
+
+`demo/` is the page at **jacquard-demo.stoatworks-labs.com** (2026-09-25), on the
+fleet's kit (`stoatworks-backend/resolume-demo`, vendored by its `sync.sh`).
+
+**What is the plugin's.** The version line and the three GLSL bodies of `Shaders.cpp`
+are spliced into `demo/plugin.js` by `demo/tools/sync_shaders.py`, tabs and comments
+included; the same script copies Loom.h's cost and memory constants, Controls.h's
+ranges, Palette.h's, the two swatch cards and the Palette / Structure option names
+into `demo/loom.js`. `demo/tools/check_shaders.py` holds all of it to the C++
+character for character (`tools/verify.sh` runs it; mutating one character of a
+shader, one constant or one option name each made it fail).
+
+**What is a hand port, checked by nobody but a reader:** `demo/loom.js` —
+Controls.cpp's conversions (Picks Auto, Thread Aspect, Zoom, the integer clamps with
+`lround`), Palette.cpp (sRGB both ways, the swatch cards, the farthest-point-seeded,
+warm-started k-means), Weave.cpp (coverage, repeats, families, `WarpUp`, the lattice
+step), Encoder.cpp (the row programme and its colour bound; not the greedy weaver)
+and Loom.cpp (the encoding table, tone to structure, the integer costs, the kHold
+memory, the forbidden crossings, the carry) — and in `plugin.js` the frame sequence of
+`ProcessOpenGL` (the read-back as floats, the palette reset on a Palette change, the
+lift upload). Every float operation is wrapped in `Math.fround`; costs are integers in
+doubles, exact. The page says so in its banner and disclosure, and states the plugin's
+own limits: exact per pick and greedy between picks, the float limit enforced inside
+each pick, one weft colour a pick, output alpha 1.
+
+**Measured once (2026-09-25), and how closely.**
+- *The CPU half alone*: a scratch driver over the C++ `Palette`/`Loom`/`Encoder`/`Weave`
+  (compiled `-O3`, three ways) and a node run of `demo/loom.js` over the same fixed
+  means: 31 frames, seven grids from 16 x 9 to 320 x 320, every palette, every
+  structure mode, Max Float 2 to 16, a warm start carried across frames and a cold
+  start mid-run. Against the **x86_64** build: identical, bit for bit — shuttles,
+  wefts, lifts, the total cost and the programme count. Against the **arm64** build
+  (what `build/jqtest` is; clang's default `-ffp-contract=on` fuses some float
+  multiply-adds, 48 `fmadd`s in Loom.o): the same weft and lift on all 608,292
+  crossings, but 6 shuttle floats differ in the last bit and the frame's total cost
+  differs by a few units on 25 of 31 frames. So the port reproduces the Intel slice's
+  arithmetic exactly and the Apple Silicon slice's cloth on everything tried; a
+  crossing on a knife edge could still go the other way there.
+- *End to end*: the page driven frame by frame from a fresh instance
+  (`window.__jacquardDemo.hooks`: `fresh()`, `afterRender`), its input frames read back
+  and piped through `jqtest --pipe` (arm64): **0 pixels differ** on 8 frames of the
+  moving Synthetic scene and 5 of Colour bars at 960x540 at the defaults, on 5 frames of
+  the Geometry card at 640x360 with Heritage x8, Twill, Max Float 2, 96 ends, Thread
+  Aspect 0.8, and 1 to 2 pixels by one level on 3 frames with Mix 0.5, Zoom 0.5, Thread
+  Shading 0.6 (ANGLE on Metal, M4 Max). Through SwiftShader, 0 to 230 pixels of 518,400
+  differ, by one level. The comparer fails when it should: jqtest at Max Float 9 against
+  the page at 10 differs on 17–21% of pixels.
+
+**What differs, each said on the page:** Ends, Picks, Max Float and Shuttles are
+dropdowns (no integer control in the kit); no About block; `Perturb` 0 and no forced
+structure; the loom's memory is lost on a reload; a browser's GPU rounds the crossing
+means its own way, so another GPU may choose a crossing differently. No audio and no
+clock caveat: the plugin has neither.
+
+Deploy: `cf-run npx wrangler deploy` from the repo root, or push to main
+(`.github/workflows/deploy.yml`). The host is a Worker **route** over a proxied
+`AAAA 100::` record made through the API on 2026-09-25, not a custom domain: the zone
+is at Cloudflare's limit of 100. Delete that record and the page goes dark while deploys
+stay green. Verify by content:
+`curl -s 'https://jacquard-demo.stoatworks-labs.com/?cb=1' | grep -o '<title>[^<]*'`.
+
 ## Decisions taken without asking
 
 - **The encoder runs on the CPU, from a read-back.** The programme is serial, and the

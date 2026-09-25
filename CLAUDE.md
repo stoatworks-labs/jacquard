@@ -89,6 +89,24 @@ Read `AGENTS.md` before changing the encoder, the loom, the structures or the re
   no user guide, no browser demo, no OpenFX port, no presets.
 - No brocade or lampas mode (a second weft a pick).
 
+## Browser demo
+
+`demo/` is the page at **jacquard-demo.stoatworks-labs.com**, deployed from
+`wrangler.toml` (a Worker route over a proxied `AAAA 100::` DNS record, not a
+custom domain) with `cf-run npx wrangler deploy` or by any push to main — no build
+step; what is committed is what is served. `demo/vendor/` is copied in by
+`~/Projects/infrastructure/stoatworks-backend/resolume-demo/sync.sh jacquard` and
+is not a place to edit.
+- **A shader or constant change in the plugin: `python3 demo/tools/sync_shaders.py`**
+  (splices Shaders.cpp's bodies into `demo/plugin.js`, and Loom.h's, Controls.h's and
+  Palette.h's constants, the swatches and the option names into `demo/loom.js`), then
+  `python3 demo/tools/check_shaders.py` (in verify.sh). Never hand-edit the generated blocks.
+- **`demo/loom.js` is a hand port** of Controls.cpp, Palette.cpp, Weave.cpp, Encoder.cpp
+  and Loom.cpp (every float op in `Math.fround`); change it by hand with the C++. Only a
+  reader checks it.
+- Verify a deploy **by content**:
+  `curl -s 'https://jacquard-demo.stoatworks-labs.com/?cb=1' | grep -o '<title>[^<]*'`.
+
 ## Diagnostics
 
 `source/Diag.{h,cpp}` — log file only, no crash handler (this runs inside Resolume).
