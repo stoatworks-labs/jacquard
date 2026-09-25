@@ -11,9 +11,10 @@
 > colour and it is a shuttle's; from a distance the cloth is nearer the picture than any
 > single colour; the shuttles and the loom's memory survive a resize; and the cloth is opaque
 > over a clip with alpha — with eight negative controls that prove each check can fail, at
-> two rasters and on a software renderer. It has **never been loaded into Resolume**; the only
-> host it has met is [oxbow](https://github.com/stoatworks-labs/oxbow), which is a real FFGL
-> host and is not Resolume. See [Status](#status).
+> two rasters and on a software renderer. It has **never been loaded into Resolume on macOS**;
+> there it is loaded by [oxbow](https://github.com/stoatworks-labs/oxbow), which is a real FFGL
+> host and is not Resolume. On Windows it has been gated in Resolume Arena 7.27.1 on software
+> rendering. See [Status](#status).
 
 The picture woven on a jacquard loom, as an FFGL effect for
 [Resolume](https://resolume.com) Arena and Avenue.
@@ -80,8 +81,11 @@ keeps a black ground black.
 
 ## Status
 
-**v0.1.0, local — 25 September 2026.** Not released, not on GitHub, not on the website.
-Built in one session; everything below was measured on the machine it was built on.
+**v0.1.0, released 25 September 2026, and honestly early.** There is a
+[user guide](https://stoatworks-labs.com/software/jacquard/guide/) ([PDF](docs/USER-GUIDE.pdf)),
+a [project page](https://stoatworks-labs.com/software/jacquard/) and a
+[browser demo](https://jacquard-demo.stoatworks-labs.com/). Everything below was measured on
+the machine it was built on.
 
 ### Measured offline, on macOS
 
@@ -111,18 +115,37 @@ machine shared with other builds:
 
 | grid | 1280×720 | 1920×1080 | 3840×2160 | of which the CPU encoder |
 | --- | --- | --- | --- | --- |
-| defaults, 160 × 90 crossings | 2.2 ms | 2.9 ms | 3.2 ms | 1.4 ms |
-| largest, 320 × 180 crossings | 5.7 ms | 5.8 ms | 7.8 ms | 4.9 ms |
+| defaults, 160 × 90 crossings | 2.0 ms | 2.0 ms | 2.1 ms | 1.3 ms |
+| largest, 320 × 180 crossings | 5.6 ms | 5.9 ms | 6.9 ms | 4.8 ms |
+
+(The release build's `verify.sh`, 2026-09-25; an earlier run on a busier machine read 2.2–3.2 ms
+and 5.7–7.8 ms.)
+
+### In Resolume Arena, on Windows
+
+On Windows it has: the DLL release.yml built from this source loads in Resolume Arena 7.27.1 on software rendering (win-lab, Mesa llvmpipe, no GPU), registers as `SW Jacquard` / `JQ01` / effect, all 19 host controls match what the plugin declares, it renders, Arena's log stays clean, and all 14 valued controls move the picture (35 to 66 levels against a noise floor of 0): 9 of the fleet Arena gate's 9 checks, one run. The gate's picture is a still, so it says nothing about how the cloth moves; software rendering says nothing about a GPU or about speed. MSVC compiled it first time.
+
+### What filming the release video found
+
+The video is rendered through `jqtest --pipe` over Resolume's demo clips. Filming found no
+defect in the code, and three facts now in the guide. **Plain on a grey clip loses the picture
+entirely**: every crossing is the same plain weave and a pick is one shuttle, so only each pick's
+average is left, and a grey clip's rows all average alike. **Over a black ground crossed by a
+bright pick the ties line up** into short vertical dashes with dark picks between, not a satin
+scatter; it is there on a single frame, so it is the per-pick weave, not the memory (a scratch
+build with the lift hold at 0 made the columns more regular, and doubled the frame-to-frame
+change). And **steadiness on moving footage**, measured through `--pipe` at 960×540 as the share
+of pixels changing by more than 8/255 from one frame to the next: a held frame 0.00%; the dancers
+(Galactucity) 10.4% in the clip and 13.2% in the cloth; the skulls 76.9% and 28.3%; Metalive 18.6%
+and 13.6%; SpaceUniverse 1.9% and 1.5%; Cyberspace's thin bright lines 7.5% and 16.9%, with one
+frame in ten re-weaving half the picture.
 
 ### Not established
 
-It has **never been loaded into Resolume**, on macOS or Windows; the Windows build has never
-been configured. Everything above was compiled, rendered and measured offline against the
-real plugin class, plus an `oxbow` load. The look on footage has been judged by eye, on
-Resolume's bundled demo clips through the harness's `--pipe`; so has "thread up close". The
-cloth's steadiness on video was measured once, by hand: on a near-still clip it changes on
-about 1% of pixels a frame against the source's 0.6%. No user guide, no presets, no browser
-demo, no OpenFX port.
+It has **never been loaded into Resolume on macOS**. Everything above was compiled, rendered
+and measured offline against the real plugin class, plus an `oxbow` load. The look on footage
+has been judged by eye, on Resolume's bundled demo clips through the harness's `--pipe`; so has
+"thread up close". Steadiness is measured, not a check. No presets, no OpenFX port.
 
 ## Browser demo
 
