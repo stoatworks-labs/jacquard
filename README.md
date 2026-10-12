@@ -25,15 +25,15 @@ the test card at the defaults, then at Zoom 8x.</sub>
 
 ## Download
 
-**[v0.1.0](https://github.com/stoatworks-labs/jacquard/releases/tag/v0.1.0)** — prebuilt for macOS and Windows. Pick your platform:
+**[v0.1.1](https://github.com/stoatworks-labs/jacquard/releases/tag/v0.1.1)** — prebuilt for macOS and Windows. Pick your platform:
 
 <details>
 <summary><b>macOS</b> — Universal (Apple Silicon + Intel)</summary>
 
 | Build | Download | Size |
 | --- | --- | --- |
-| Universal (Apple Silicon + Intel) · .dmg disk image | [`jacquard-0.1.0-macos-universal.dmg`](https://github.com/stoatworks-labs/jacquard/releases/download/v0.1.0/jacquard-0.1.0-macos-universal.dmg) | 249 KB |
-| Universal (Apple Silicon + Intel) · .zip archive | [`jacquard-macos-universal.zip`](https://github.com/stoatworks-labs/jacquard/releases/latest/download/jacquard-macos-universal.zip) | 210 KB |
+| Universal (Apple Silicon + Intel) · .dmg disk image | [`jacquard-0.1.1-macos-universal.dmg`](https://github.com/stoatworks-labs/jacquard/releases/download/v0.1.1/jacquard-0.1.1-macos-universal.dmg) | 253 KB |
+| Universal (Apple Silicon + Intel) · .zip archive | [`jacquard-macos-universal.zip`](https://github.com/stoatworks-labs/jacquard/releases/latest/download/jacquard-macos-universal.zip) | 212 KB |
 
 </details>
 
@@ -42,7 +42,7 @@ the test card at the defaults, then at Zoom 8x.</sub>
 
 | Build | Download | Size |
 | --- | --- | --- |
-| x64 · .exe installer | [`jacquard-0.1.0-windows-x86_64-setup.exe`](https://github.com/stoatworks-labs/jacquard/releases/download/v0.1.0/jacquard-0.1.0-windows-x86_64-setup.exe) | 234 KB |
+| x64 · .exe installer | [`jacquard-0.1.1-windows-x86_64-setup.exe`](https://github.com/stoatworks-labs/jacquard/releases/download/v0.1.1/jacquard-0.1.1-windows-x86_64-setup.exe) | 236 KB |
 | x64 · .zip archive | [`jacquard-windows-x86_64.zip`](https://github.com/stoatworks-labs/jacquard/releases/latest/download/jacquard-windows-x86_64.zip) | 129 KB |
 
 </details>
