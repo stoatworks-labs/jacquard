@@ -1,31 +1,25 @@
 # jacquard
 
 > **AI-assisted project.** This codebase was created with [Claude](https://claude.com/claude-code)
-> (Anthropic), directed and reviewed by a human author. The weaving is not asserted but
-> measured: an offline harness drives the real plugin class in a headless GL context and
-> reads each claim back — every pick the loom weaves costs exactly what an exhaustive search
-> over shuttle and pattern finds, on 960 woven picks and 200 arbitrary tables; no warp or weft
-> float runs past Max Float in 48 cloths, counted on the grid and read back from the picture;
-> each of eight weave structures shows exactly its stated weft ratio over 3,600 crossings; a
-> twill's diagonal lands at exactly one end across per pick down; every pick shows one weft
-> colour and it is a shuttle's; from a distance the cloth is nearer the picture than any
-> single colour; the shuttles and the loom's memory survive a resize; the cloth is opaque
-> over a clip with alpha; and over a black ground the ties scatter rather than line up down
-> the ends — with nine negative controls that prove each check can fail, at two rasters and
-> on a software renderer. It has **never been loaded into Resolume on macOS**;
-> there it is loaded by [oxbow](https://github.com/stoatworks-labs/oxbow), which is a real FFGL
-> host and is not Resolume. On Windows it has been gated in Resolume Arena 7.27.1 on software
-> rendering. See [Status](#status).
+> (Anthropic), directed and reviewed by a human author. The weaving is measured rather than
+> asserted: an offline harness drives the real plugin code and reads each claim back, from
+> every pick matching an exhaustive search to no float running past Max Float, with nine
+> negative controls that prove each check can fail, at two rasters and on a software renderer.
+> It has **never been loaded into Resolume on macOS**; there it's loaded by
+> [oxbow](https://github.com/stoatworks-labs/oxbow), which is a real FFGL host but isn't
+> Resolume. On Windows it's been through the gate in Resolume Arena 7.27.1 on software
+> rendering. The numbers are under [Status](#status).
 
-The picture woven on a jacquard loom, as an FFGL effect for
-[Resolume](https://resolume.com) Arena and Avenue.
+Your clip, woven on a jacquard loom, as an FFGL effect for [Resolume](https://resolume.com)
+Arena and Avenue. The jacquard loom was reading punched cards long before computers were, so
+it seemed only fair to put one on a GPU.
 
 ![The test card woven: a sky of blue weft picks over a black warp with scattered ties, a white twill band at the horizon, the ground and the colour patches in orange, pale blue and black picks, and the grey ramp in black and white twills](docs/hero.png)
 
 ![The same cloth at eight times: black warp ends and lit white and pale blue weft floats stepping in a twill's diagonal, each float's ends dipping under the crossing thread](docs/close.png)
 
-<sub>Two frames rendered by `jqtest`, the offline harness — not captured from Resolume. The
-test card at the defaults, then at Zoom 8x.</sub>
+<sub>Two frames rendered by `jqtest`, the offline harness, rather than captured from Resolume:
+the test card at the defaults, then at Zoom 8x.</sub>
 
 <!-- downloads:start -->
 
@@ -65,45 +59,46 @@ macOS builds are signed and notarised and open normally. The Windows builds are 
 
 ## The one idea
 
-At every crossing of a woven cloth one of two threads is on top: the **warp**, running
+At every crossing in a woven cloth, one of two threads is on top: the **warp**, running
 down, or the **weft**, running across. A jacquard head lifts every warp end on its own, so
-any picture can be woven — but three constraints make a woven picture look woven:
+you can weave any picture, but three constraints make a woven picture look woven:
 
-1. **Colour comes from threads, not pixels.** One warp colour; and each row, a *pick*,
-   carries **one weft colour** from the shuttles loaded. A pick cannot be two colours.
+1. **Colour comes from threads, not pixels.** There's one warp colour, and each row (a
+   *pick*) carries **one weft colour** from the shuttles that are loaded. A pick can't be two
+   colours.
 2. **Floats must be tied down.** A thread that passes over or under too many crossings in
-   a row snags, so no float may run longer than **Max Float**, warp or weft, on either face.
-3. **Tone is carried by weave structure.** A satin shows more weft than a twill, a twill
-   more than a plain weave; a designer assigns structures to tones.
+   a row snags, so no float can run longer than **Max Float**, warp or weft, on either face.
+3. **Tone is carried by weave structure.** A satin shows more weft than a twill, and a twill
+   more than a plain weave, so a designer assigns structures to tones.
 
-So a jacquard encoder is an optimiser under constraints. This plugin weaves the clip pick
-by pick, top to bottom as a loom does, and chooses each pick's shuttle and its lift pattern
-with an **exactly optimal** programme under both float limits. What falls out:
+So a jacquard encoder is an optimiser with constraints. This plugin weaves the clip pick by
+pick, top to bottom the way a loom does, and chooses each pick's shuttle and lift pattern with
+an exactly optimal programme under both float limits. What falls out of that:
 
 - **The twill's diagonal in the midtones**, and a satin's smooth face near the ends of the
   range: tone is posterised into regions of one structure, each phase-aligned to the grid so
   the diagonals run straight.
 - **Colour banding along the picks.** A pick is one colour across the whole width, so where
   the picture wants two hues side by side the shuttles alternate from pick to pick and mix at
-  a distance — the error each crossing is left with is carried to the next pick until one
-  pays it.
-- **Ties sprinkled through the solids.** A solid is one unbroken float; the programme ties
-  it at least cost, and a tie out of satin order costs its speck twice, so the ties scatter
-  in satin order. A pick's ties are always its own shuttle's colour, so a bright pick
-  crossing a black ground leaves a scatter of specks. (v0.1.0 lined them up into short
-  vertical dashes; v0.1.1 fixed it — see Status.)
+  a distance. The error each crossing is left with gets carried down to the next pick until
+  one pays it off.
+- **Ties sprinkled through the solids.** A solid is one unbroken float. The programme ties it
+  at least cost, and a tie out of satin order costs its speck twice, so the ties scatter in
+  satin order. A pick's ties are always its own shuttle's colour, so a bright pick crossing a
+  black ground leaves a scatter of specks. (v0.1.0 lined them up into short vertical dashes,
+  which v0.1.1 fixed; see Status.)
 - **A picture from across the room and thread up close.** Each crossing is drawn as its top
   thread, a lit cylinder that dips under at the end of every float, with the other thread in
-  shadow in the gap; Zoom goes from the picture to the cloth.
+  shadow in the gap. Zoom takes you from the picture to the cloth.
 
 ### The honest limit
 
-The loom weaves top to bottom and a pick cannot see the picks below it: each pick is exactly
-optimal given the picks above, and the cloth as a whole is not a two-dimensional optimum.
-Two saturated hues side by side weave as an uneven alternation, not two clean halves. There
-is one weft a pick — no brocade or lampas mode. And the cloth is woven afresh every frame
-with a memory of the last one, which holds a still clip still; how steady it is on footage
-was measured once, by hand, and is not a check.
+The loom weaves top to bottom and a pick can't see the picks below it, so each pick is
+exactly optimal given the picks above, but the cloth as a whole isn't a two-dimensional
+optimum. Two saturated hues side by side weave as an uneven alternation rather than two clean
+halves. There's one weft a pick, with no brocade or lampas mode. And the cloth is woven
+afresh every frame with a memory of the last one, which holds a still clip still; how steady
+it is on footage was measured once, by hand, and isn't a check.
 
 ## Controls
 
@@ -114,15 +109,15 @@ was measured once, by hand, and is not a check.
 | **Look** | Thread Shading (the lit thread; it fades out below a few pixels a crossing), Zoom (1–8x about the centre), Mix. |
 
 The defaults are 160 ends, square crossings, floats of at most ten, a black warp, six
-shuttles dyed from the clip and structure by tone, fully shaded, the whole cloth in view.
-They were chosen by weaving Resolume's bundled demo clips through the harness; a black warp
-keeps a black ground black.
+shuttles dyed from the clip, structure by tone, full shading and the whole cloth in view. I
+picked them by weaving Resolume's bundled demo clips through the harness; a black warp keeps
+a black ground black.
 
 ## Status
 
-**v0.1.1, released 25 September 2026, and honestly early.** v0.1.1 fixes the one defect
-filming v0.1.0 found: ties over a black ground now scatter in satin order instead of lining
-up into short vertical dashes (below). There is a
+**v0.1.1, released 25 September 2026, and still early days.** v0.1.1 fixes the one defect
+that filming v0.1.0 turned up: ties over a black ground now scatter in satin order instead of
+lining up into short vertical dashes (more below). There's a
 [user guide](https://stoatworks-labs.com/software/jacquard/guide/) ([PDF](docs/USER-GUIDE.pdf)),
 a [project page](https://stoatworks-labs.com/software/jacquard/) and a
 [browser demo](https://jacquard-demo.stoatworks-labs.com/). Everything below was measured on
@@ -130,9 +125,9 @@ the machine it was built on.
 
 ### Measured offline, on macOS
 
-`tools/verify.sh` passes on this machine (M4 Max, macOS 26.4) against a fresh universal
-Release build, running every picture check at **two rasters**, 320×180 and 1280×720, and
-again at 320×180 on Apple's **software renderer**. What it establishes, in numbers:
+`tools/verify.sh` passes on this Mac (M4 Max, macOS 26.4) against a fresh universal Release
+build, running every picture check at two rasters, 320×180 and 1280×720, and again at
+320×180 on Apple's software renderer. Here's what it shows, in numbers:
 
 | check | result |
 | --- | --- |
@@ -164,63 +159,71 @@ machine shared with other builds:
 
 ### In Resolume Arena, on Windows
 
-On Windows it has: the v0.1.1 DLL release.yml built from this source loads in Resolume Arena 7.27.1 on software rendering (win-lab, Mesa llvmpipe, no GPU), registers as `SW Jacquard` / `JQ01` / effect, all 19 host controls match what the plugin declares, it renders, Arena's log stays clean, and all 14 valued controls move the picture (38 to 68 levels against a noise floor of 0): 9 of the fleet Arena gate's 9 checks, one run on 2026-09-25 (v0.1.0's DLL passed the same 9, with 35 to 66). The gate's picture is a still, so it says nothing about how the cloth moves; software rendering says nothing about a GPU or about speed. MSVC compiled it first time.
+The v0.1.1 DLL that release.yml built from this source loads in Resolume Arena 7.27.1 on
+software rendering (win-lab, Mesa llvmpipe, no GPU) and registers as `SW Jacquard` / `JQ01` /
+effect, all 19 host controls match what the plugin declares, it renders, Arena's log stays
+clean, and all 14 valued controls move the picture (38 to 68 levels against a noise floor of
+0). That's 9 of the fleet Arena gate's 9 checks, in one run on 2026-09-25 (v0.1.0's DLL
+passed the same 9, with 35 to 66). The gate's picture is a still, so it says nothing about how
+the cloth moves, and software rendering says nothing about a GPU or about speed. MSVC even
+compiled it first time.
 
 ### v0.1.1: ties over black scatter
 
-Filming v0.1.0 found that where a bright pick crosses a black ground the ties sat in the
-same ends pick after pick. The cause was measured, not guessed: the error the loom carries
-down the cloth varies from end to end even over flat black, and it runs down the ends, so a
-bright tie cost least in the same few ends every pick, by five times the lattice's
+Filming v0.1.0 showed that where a bright pick crosses a black ground, the ties sat in the
+same ends pick after pick. I measured the cause rather than guessing at it: the error the loom
+carries down the cloth varies from end to end even over flat black, and it runs down the
+ends, so a bright tie cost least in the same few ends every pick, by five times the lattice's
 preference for satin order. v0.1.1 charges a tie out of satin order its speck twice, which
-only the picture itself can outweigh, picks the lattice's step as a weaver picks a satin
+only the picture itself can outweigh, picks the lattice's step the way a weaver picks a satin
 counter (ties as far apart as the period allows), and doubles the memory's hold on each
-pick's shuttle so busy footage is no less steady. Measured over Resolume's demo clips
-through `--pipe` at 960×540: on the dancers a bright speck over black had a speck two picks
-above it 26% of the time, and now 0.1%; the share of pixels changing from frame to frame
-went from 13.2% to 11.3% there, and no clip measured changes more than in v0.1.0 (the
+pick's shuttle so busy footage is no less steady. Measured over Resolume's demo clips through
+`--pipe` at 960×540: on the dancers, a bright speck over black used to have a speck two picks
+above it 26% of the time, and now it's 0.1%. The share of pixels changing from frame to frame
+went from 13.2% to 11.3% there, and no clip measured changes more than it did in v0.1.0 (the
 skulls 28.3% → 27.4%, SpaceUniverse 1.5% → 1.5%, a held frame 0% → 0%); the far error moved
-by −4% to +2%. The new `--ties` check holds it. The project video shows v0.1.0.
+by −4% to +2%. The new `--ties` check keeps it that way. The project video shows v0.1.0.
 
 ### What filming the release video found
 
 The video is rendered through `jqtest --pipe` over Resolume's demo clips. Filming found no
-defect in the code, and three facts now in the guide (the second fixed in v0.1.1). **Plain on a grey clip loses the picture
-entirely**: every crossing is the same plain weave and a pick is one shuttle, so only each pick's
-average is left, and a grey clip's rows all average alike. **Over a black ground crossed by a
-bright pick the ties line up** into short vertical dashes with dark picks between, not a satin
-scatter; it is there on a single frame, so it is the per-pick weave, not the memory (a scratch
-build with the lift hold at 0 made the columns more regular, and doubled the frame-to-frame
-change). And **steadiness on moving footage**, measured through `--pipe` at 960×540 as the share
-of pixels changing by more than 8/255 from one frame to the next: a held frame 0.00%; the dancers
-(Galactucity) 10.4% in the clip and 13.2% in the cloth; the skulls 76.9% and 28.3%; Metalive 18.6%
-and 13.6%; SpaceUniverse 1.9% and 1.5%; Cyberspace's thin bright lines 7.5% and 16.9%, with one
-frame in ten re-weaving half the picture.
+defect in the code, and three facts that are now in the guide (the second was fixed in
+v0.1.1). **Plain on a grey clip loses the picture entirely**: every crossing is the same plain
+weave and a pick is one shuttle, so only each pick's average is left, and a grey clip's rows
+all average out the same. **Over a black ground crossed by a bright pick, the ties line up**
+into short vertical dashes with dark picks between, not a satin scatter. It's there on a
+single frame, so it's the per-pick weave rather than the memory (a scratch build with the
+lift hold at 0 made the columns more regular, and doubled the frame-to-frame change). And
+**steadiness on moving footage**, measured through `--pipe` at 960×540 as the share of pixels
+changing by more than 8/255 from one frame to the next: a held frame 0.00%; the dancers
+(Galactucity) 10.4% in the clip and 13.2% in the cloth; the skulls 76.9% and 28.3%; Metalive
+18.6% and 13.6%; SpaceUniverse 1.9% and 1.5%; Cyberspace's thin bright lines 7.5% and 16.9%,
+with one frame in ten re-weaving half the picture.
 
 ### Not established
 
 It has **never been loaded into Resolume on macOS**. Everything above was compiled, rendered
 and measured offline against the real plugin class, plus an `oxbow` load. The look on footage
-has been judged by eye, on Resolume's bundled demo clips through the harness's `--pipe`; so has
-"thread up close". Steadiness is measured, not a check. No presets, no OpenFX port.
+has been judged by eye, on Resolume's bundled demo clips through the harness's `--pipe`, and
+so has "thread up close". Steadiness is measured, but it isn't a check. There are no presets
+and no OpenFX port.
 
 ## Browser demo
 
-[jacquard-demo.stoatworks-labs.com](https://jacquard-demo.stoatworks-labs.com/)
-runs the plugin's own cells and render shaders in WebGL2, spliced in from
-`source/Shaders.cpp` by `demo/tools/sync_shaders.py` and checked character for
-character by `demo/tools/check_shaders.py` from `tools/verify.sh`. Its CPU half — the
-k-means that dyes the shuttles and the loom with its exact row programme — is a
-**hand port to JavaScript** (`demo/loom.js`), and nothing checks a port but a reader.
-It was compared with the C++ at v0.1.0 and again at v0.1.1: the same cloth on every
-crossing of 41 frames of fixed means (black grounds included since v0.1.1), and against
-`jqtest --pipe` on the page's own input frames the same picture to within one 8-bit level,
-most frames on every pixel (see AGENTS.md). The
-same limits hold there as here: each pick is exact given the picks above it and the
-cloth is greedy between picks, the float limit is enforced inside each pick, one weft
-colour a pick, and the output alpha is 1. Ends, Picks, Max Float and Shuttles are
-dropdowns (the kit has no integer control). It is served from `demo/` by this repo's
-own Worker and redeploys on every push to main.
+[jacquard-demo.stoatworks-labs.com](https://jacquard-demo.stoatworks-labs.com/) runs the
+plugin's own cells and render shaders in WebGL2, spliced in from `source/Shaders.cpp` by
+`demo/tools/sync_shaders.py` and checked character for character by
+`demo/tools/check_shaders.py` from `tools/verify.sh`. Its CPU half (the k-means that dyes the
+shuttles, and the loom with its exact row programme) is a hand port to JavaScript
+(`demo/loom.js`), and nothing checks a port except a person reading it. I compared it with the
+C++ at v0.1.0 and again at v0.1.1: the same cloth on every crossing of 41 frames of fixed
+means (black grounds included since v0.1.1), and against `jqtest --pipe` on the page's own
+input frames, the same picture to within one 8-bit level, with most frames matching on every
+pixel (see AGENTS.md). The same limits apply there as here: each pick is exact given the picks
+above it and the cloth is greedy between picks, the float limit is enforced inside each pick,
+there's one weft colour a pick, and the output alpha is 1. Ends, Picks, Max Float and
+Shuttles are dropdowns (the kit has no integer control). It's served from `demo/` by this
+repo's own Worker and redeploys on every push to main.
 
 ## Build
 
@@ -239,7 +242,7 @@ macOS builds are universal (Apple Silicon + Intel) by default; add
 
 ## Building and testing
 
-The offline harness renders the real plugin class headlessly:
+The offline harness renders the real plugin class headless:
 
 ```bash
 ./build/jqtest --out /tmp/frame.png --size 1920x1080   # the test card
@@ -264,8 +267,8 @@ ffmpeg -i in.mov -f rawvideo -pix_fmt rgba - \
   | ffmpeg -f rawvideo -pix_fmt rgba -s 1920x1080 -i - out.mov
 ```
 
-See [`CLAUDE.md`](CLAUDE.md) for the full command reference and
-[`AGENTS.md`](AGENTS.md) for the model and the traps.
+[`CLAUDE.md`](CLAUDE.md) has the full command reference, and [`AGENTS.md`](AGENTS.md) the
+model and the traps.
 
 <!-- attributions:start -->
 This project is built on other people's work — see [ATTRIBUTIONS.md](ATTRIBUTIONS.md).
