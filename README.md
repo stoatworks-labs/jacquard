@@ -98,7 +98,8 @@ exactly optimal given the picks above, but the cloth as a whole isn't a two-dime
 optimum. Two saturated hues side by side weave as an uneven alternation rather than two clean
 halves. There's one weft a pick, with no brocade or lampas mode. And the cloth is woven
 afresh every frame with a memory of the last one, which holds a still clip still; how steady
-it is on footage was measured once, by hand, and isn't a check.
+it is on footage has been measured by hand, for v0.1.0 and again for v0.1.1, and isn't a
+check.
 
 ## Controls
 
@@ -177,28 +178,30 @@ ends, so a bright tie cost least in the same few ends every pick, by five times 
 preference for satin order. v0.1.1 charges a tie out of satin order its speck twice, which
 only the picture itself can outweigh, picks the lattice's step the way a weaver picks a satin
 counter (ties as far apart as the period allows), and doubles the memory's hold on each
-pick's shuttle so busy footage is no less steady. Measured over Resolume's demo clips through
-`--pipe` at 960×540: on the dancers, a bright speck over black used to have a speck two picks
-above it 26% of the time, and now it's 0.1%. The share of pixels changing from frame to frame
-went from 13.2% to 11.3% there, and no clip measured changes more than it did in v0.1.0 (the
-skulls 28.3% → 27.4%, SpaceUniverse 1.5% → 1.5%, a held frame 0% → 0%); the far error moved
-by −4% to +2%. The new `--ties` check keeps it that way. The project video shows v0.1.0.
+pick's shuttle so busy footage is no less steady. Measured over 120 frames of each of
+Resolume's demo clips through `--pipe` at 960×540, v0.1.0 against v0.1.1: on the dancers, a
+bright speck over black used to have a speck two picks above it 26% of the time, and now it's
+0.1%. The share of pixels changing from frame to frame went from 13.2% to 11.3% there, and
+no clip measured changes more than it did in v0.1.0 (the skulls 28.3% → 27.4%, SpaceUniverse
+1.5% → 1.5%, a held frame 0% → 0%); the far error moved by −4% to +2%. The new `--ties`
+check keeps it that way. The project video shows v0.1.0.
 
 ### What filming the release video found
 
-The video is rendered through `jqtest --pipe` over Resolume's demo clips. Filming found no
-defect in the code, and three facts that are now in the guide (the second was fixed in
-v0.1.1). **Plain on a grey clip loses the picture entirely**: every crossing is the same plain
+The video is rendered through `jqtest --pipe` over Resolume's demo clips, on v0.1.0. Filming
+found three things that are now in the guide, and the second was a defect in the code, fixed in
+v0.1.1. **Plain on a grey clip loses the picture entirely**: every crossing is the same plain
 weave and a pick is one shuttle, so only each pick's average is left, and a grey clip's rows
 all average out the same. **Over a black ground crossed by a bright pick, the ties line up**
 into short vertical dashes with dark picks between, not a satin scatter. It's there on a
 single frame, so it's the per-pick weave rather than the memory (a scratch build with the
 lift hold at 0 made the columns more regular, and doubled the frame-to-frame change). And
-**steadiness on moving footage**, measured through `--pipe` at 960×540 as the share of pixels
-changing by more than 8/255 from one frame to the next: a held frame 0.00%; the dancers
+**steadiness on moving footage** in v0.1.0, measured through `--pipe` at 960×540 as the share
+of pixels changing by more than 8/255 from one frame to the next: a held frame 0.00%; the dancers
 (Galactucity) 10.4% in the clip and 13.2% in the cloth; the skulls 76.9% and 28.3%; Metalive
 18.6% and 13.6%; SpaceUniverse 1.9% and 1.5%; Cyberspace's thin bright lines 7.5% and 16.9%,
-with one frame in ten re-weaving half the picture.
+with one frame in ten re-weaving half the picture. Those are from filming; the before-and-after
+run for v0.1.1 above is a separate run, so its figures for the clips themselves differ a little.
 
 ### Not established
 
