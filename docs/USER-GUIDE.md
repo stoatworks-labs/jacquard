@@ -321,8 +321,8 @@ buffer the plugin couldn't allocate.
 - **Never loaded into Resolume on macOS.** Everything numeric was compiled, rendered and measured
   offline against the real plugin class in a headless CGL context, plus an `oxbow` load.
 - **Never seen on camera footage**, only on Resolume's bundled CG loops.
-- **Only ever run on an Apple M4 Max**, although the macOS build contains an Intel slice. On
-  Windows, see the note at the top of this guide.
+- **On a Mac I've only run it on Apple silicon** (an M4 Max, and CI's macOS runner), although
+  the macOS build contains an Intel slice. On Windows, see the note at the top of this guide.
 - **No presets** and no OpenFX version.
 - **There's a browser demo** at [jacquard-demo.stoatworks-labs.com](https://jacquard-demo.stoatworks-labs.com/).
   It's a port to a web page, not the plugin: the shaders are the plugin's own, run in WebGL2,
